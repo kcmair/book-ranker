@@ -163,6 +163,12 @@ CREATE TABLE assignment_runs (
     class_id UUID NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
     status VARCHAR(20) NOT NULL, -- PENDING, COMPLETE, FAILED
     algorithm_version VARCHAR(50),
+    total_cost INTEGER NOT NULL DEFAULT 0,
+    satisfaction_score DOUBLE PRECISION NOT NULL DEFAULT 0,
+    first_choice_count INTEGER NOT NULL DEFAULT 0,
+    top_three_count INTEGER NOT NULL DEFAULT 0,
+    worse_than_third_count INTEGER NOT NULL DEFAULT 0,
+    unassigned_student_count INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT NOW()
 );
 ```

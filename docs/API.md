@@ -319,7 +319,13 @@ Response:
 ```json id="a1"
 {
   "assignmentRunId": "uuid",
-  "status": "COMPLETE"
+  "status": "COMPLETE",
+  "totalCost": 2,
+  "satisfactionScore": 0.92,
+  "firstChoiceCount": 18,
+  "topThreeCount": 24,
+  "worseThanThirdCount": 1,
+  "unassignedStudentCount": 0
 }
 ```
 
@@ -336,6 +342,12 @@ Response:
 ```json id="a2"
 {
   "runId": "uuid",
+  "totalCost": 2,
+  "satisfactionScore": 0.92,
+  "firstChoiceCount": 18,
+  "topThreeCount": 24,
+  "worseThanThirdCount": 1,
+  "unassignedStudentCount": 0,
   "results": [
     {
       "studentId": "uuid",
@@ -361,7 +373,13 @@ Response:
     {
       "runId": "uuid",
       "createdAt": "timestamp",
-      "status": "COMPLETE"
+      "status": "COMPLETE",
+      "totalCost": 2,
+      "satisfactionScore": 0.92,
+      "firstChoiceCount": 18,
+      "topThreeCount": 24,
+      "worseThanThirdCount": 1,
+      "unassignedStudentCount": 0
     }
   ]
 }
