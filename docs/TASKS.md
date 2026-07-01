@@ -65,7 +65,7 @@ Status values:
 
 * Owner: Auth Agent
 * Dependencies: none
-* Status: ⬜
+* Status: ✅
 * Description: Create Teacher entity (id, email, passwordHash)
 
 ---
@@ -74,7 +74,7 @@ Status values:
 
 * Owner: Auth Agent
 * Dependencies: A1
-* Status: ⬜
+* Status: ✅
 
 ---
 
@@ -82,7 +82,7 @@ Status values:
 
 * Owner: Auth Agent
 * Dependencies: A1, A2
-* Status: ⬜
+* Status: ✅
 * Description:
 
     * register
@@ -95,7 +95,7 @@ Status values:
 
 * Owner: Auth Agent
 * Dependencies: A3
-* Status: ⬜
+* Status: ✅
 
 ---
 
@@ -103,7 +103,7 @@ Status values:
 
 * Owner: Auth Agent
 * Dependencies: A3, A4
-* Status: ⬜
+* Status: ✅
 * Endpoints:
 
     * POST /api/teachers/register
