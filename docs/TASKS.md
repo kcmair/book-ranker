@@ -279,7 +279,7 @@ Status values:
 
 * Owner: Assignment Agent
 * Dependencies: B1, C1, D1, E1
-* Status: ⬜
+* Status: ✅
 
 ---
 
@@ -287,7 +287,7 @@ Status values:
 
 * Owner: Assignment Agent
 * Dependencies: B1
-* Status: ⬜
+* Status: ✅
 
 ---
 
@@ -295,7 +295,7 @@ Status values:
 
 * Owner: Assignment Agent
 * Dependencies: F2, G1, G2
-* Status: ⬜
+* Status: ✅
 
 ---
 
@@ -303,7 +303,7 @@ Status values:
 
 * Owner: Assignment Agent
 * Dependencies: G3
-* Status: ⬜
+* Status: ✅
 
 ---
 
