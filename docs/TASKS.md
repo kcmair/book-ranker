@@ -117,7 +117,7 @@ Status values:
 
 * Owner: Domain Agent
 * Dependencies: A1 (teacher exists)
-* Status: ⬜
+* Status: ✅
 
 ---
 
@@ -125,7 +125,7 @@ Status values:
 
 * Owner: Domain Agent
 * Dependencies: B1
-* Status: ⬜
+* Status: ✅
 
 ---
 
@@ -133,7 +133,7 @@ Status values:
 
 * Owner: Domain Agent
 * Dependencies: B1, B2
-* Status: ⬜
+* Status: ✅
 
 ---
 
@@ -141,7 +141,7 @@ Status values:
 
 * Owner: Domain Agent
 * Dependencies: B3
-* Status: ⬜
+* Status: ✅
 
 ---
 
@@ -151,7 +151,7 @@ Status values:
 
 * Owner: Domain Agent
 * Dependencies: B1
-* Status: ⬜
+* Status: ✅
 
 ---
 
@@ -159,7 +159,7 @@ Status values:
 
 * Owner: Domain Agent
 * Dependencies: C1
-* Status: ⬜
+* Status: ✅
 
 ---
 
@@ -167,7 +167,7 @@ Status values:
 
 * Owner: Domain Agent
 * Dependencies: C1, C2
-* Status: ⬜
+* Status: ✅
 
 ---
 
@@ -175,7 +175,7 @@ Status values:
 
 * Owner: Domain Agent
 * Dependencies: C3, B1
-* Status: ⬜
+* Status: ✅
 
 ---
 
@@ -185,7 +185,7 @@ Status values:
 
 * Owner: Domain Agent
 * Dependencies: B1
-* Status: ⬜
+* Status: ✅
 
 ---
 
@@ -193,7 +193,7 @@ Status values:
 
 * Owner: Domain Agent
 * Dependencies: D1
-* Status: ⬜
+* Status: ✅
 
 ---
 
@@ -201,7 +201,7 @@ Status values:
 
 * Owner: Domain Agent
 * Dependencies: D1, B1
-* Status: ⬜
+* Status: ✅
 
 ---
 
@@ -209,7 +209,7 @@ Status values:
 
 * Owner: Domain Agent
 * Dependencies: D3
-* Status: ⬜
+* Status: ✅
 
 ---
 
@@ -219,7 +219,7 @@ Status values:
 
 * Owner: Domain Agent
 * Dependencies: D1, C1
-* Status: ⬜
+* Status: ✅
 
 ---
 
@@ -227,7 +227,7 @@ Status values:
 
 * Owner: Domain Agent
 * Dependencies: E1
-* Status: ⬜
+* Status: ✅
 
 ---
 
@@ -235,7 +235,7 @@ Status values:
 
 * Owner: Domain Agent
 * Dependencies: E2
-* Status: ⬜
+* Status: ✅
 
 ---
 
