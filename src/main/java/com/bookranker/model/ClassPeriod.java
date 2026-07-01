@@ -9,7 +9,8 @@ import java.util.List;
 @Getter
 @Setter
 @NoArgsConstructor
-public class ClassEntity {
+@Table(name = "classes")
+public class ClassPeriod {
 
   @Id
   @GeneratedValue(strategy = GenerationType.UUID)
@@ -19,9 +20,9 @@ public class ClassEntity {
 
   private String joinCode;
 
-  @OneToMany(mappedBy = "classEntity")
+  @OneToMany(mappedBy = "classPeriod")
   private List<Book> books;
 
-  @OneToMany(mappedBy = "classEntity")
+  @OneToMany(mappedBy = "classPeriod")
   private List<Student> students;
 }

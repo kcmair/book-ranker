@@ -1,6 +1,6 @@
 package com.bookranker.controller;
 
-import com.bookranker.model.ClassEntity;
+import com.bookranker.model.ClassPeriod;
 import com.bookranker.service.ClassService;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,12 +15,12 @@ public class ClassController {
   }
 
   @PostMapping
-  public ClassEntity createClass(@RequestParam String name) {
+  public ClassPeriod createClass(@RequestParam String name) {
     return classService.createClass(name);
   }
 
   @GetMapping("/{id}")
-  public ClassEntity getClass(@PathVariable String id) {
+  public ClassPeriod getClass(@PathVariable String id) {
     return classService.getClass(id);
   }
 }

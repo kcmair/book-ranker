@@ -18,5 +18,5 @@ public class Book {
   private int capacity;
 
   @ManyToOne
-  private ClassEntity classEntity;
+  private ClassPeriod classPeriod;
 }

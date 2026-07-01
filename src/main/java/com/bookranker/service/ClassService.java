@@ -1,6 +1,6 @@
 package com.bookranker.service;
 
-import com.bookranker.model.ClassEntity;
+import com.bookranker.model.ClassPeriod;
 import com.bookranker.repository.ClassRepository;
 import org.springframework.stereotype.Service;
 
@@ -15,14 +15,14 @@ public class ClassService {
     this.classRepository = classRepository;
   }
 
-  public ClassEntity createClass(String name) {
-    ClassEntity c = new ClassEntity();
+  public ClassPeriod createClass(String name) {
+    ClassPeriod c = new ClassPeriod();
     c.setName(name);
     c.setJoinCode(UUID.randomUUID().toString().substring(0, 6).toUpperCase());
     return classRepository.save(c);
   }
 
-  public ClassEntity getClass(String id) {
+  public ClassPeriod getClass(String id) {
     return classRepository.findById(id)
         .orElseThrow(() -> new RuntimeException("Class not found"));
   }

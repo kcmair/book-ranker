@@ -16,5 +16,5 @@ public class Student {
   private String name;
 
   @ManyToOne
-  private ClassEntity classEntity;
+  private ClassPeriod classPeriod;
 }
