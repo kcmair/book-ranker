@@ -4,10 +4,12 @@ import com.bookranker.books.dto.BookResponse;
 import com.bookranker.books.dto.BooksResponse;
 import com.bookranker.books.dto.CreateBookRequest;
 import com.bookranker.books.dto.CreateBookResponse;
+import com.bookranker.books.dto.UpdateBookRequest;
 import com.bookranker.books.model.Book;
 import com.bookranker.books.repository.BookRepository;
 import com.bookranker.classperiods.model.ClassPeriod;
 import com.bookranker.classperiods.service.ClassPeriodService;
+import com.bookranker.rankings.repository.RankingRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,10 +20,16 @@ public class BookService {
 
   private final BookRepository bookRepository;
   private final ClassPeriodService classPeriodService;
+  private final RankingRepository rankingRepository;
 
-  public BookService(BookRepository bookRepository, ClassPeriodService classPeriodService) {
+  public BookService(
+      BookRepository bookRepository,
+      ClassPeriodService classPeriodService,
+      RankingRepository rankingRepository
+  ) {
     this.bookRepository = bookRepository;
     this.classPeriodService = classPeriodService;
+    this.rankingRepository = rankingRepository;
   }
 
   @Transactional
@@ -46,5 +54,31 @@ public class BookService {
     return new BooksResponse(bookRepository.findByClassPeriodId(classPeriodId).stream()
         .map(book -> new BookResponse(book.getId(), book.getTitle(), book.getCapacity()))
         .toList());
+  }
+
+  @Transactional
+  public BookResponse updateBook(
+      String classPeriodId,
+      String bookId,
+      UpdateBookRequest request,
+      String teacherEmail
+  ) {
+    Book book = findOwnedBook(classPeriodId, bookId, teacherEmail);
+    book.setTitle(request.title());
+    book.setCapacity(request.capacity());
+    return new BookResponse(book.getId(), book.getTitle(), book.getCapacity());
+  }
+
+  @Transactional
+  public void deleteBook(String classPeriodId, String bookId, String teacherEmail) {
+    Book book = findOwnedBook(classPeriodId, bookId, teacherEmail);
+    rankingRepository.deleteByBookId(book.getId());
+    bookRepository.delete(book);
+  }
+
+  private Book findOwnedBook(String classPeriodId, String bookId, String teacherEmail) {
+    classPeriodService.findOwnedClassPeriod(classPeriodId, teacherEmail);
+    return bookRepository.findByIdAndClassPeriodId(bookId, classPeriodId)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Book not found"));
   }
 }

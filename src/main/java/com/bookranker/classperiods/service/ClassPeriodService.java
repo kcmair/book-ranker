@@ -8,8 +8,10 @@ import com.bookranker.classperiods.dto.ClassPeriodSummaryResponse;
 import com.bookranker.classperiods.dto.ClassPeriodsResponse;
 import com.bookranker.classperiods.dto.CreateClassPeriodRequest;
 import com.bookranker.classperiods.dto.CreateClassPeriodResponse;
+import com.bookranker.classperiods.dto.UpdateClassPeriodRequest;
 import com.bookranker.classperiods.model.ClassPeriod;
 import com.bookranker.classperiods.repository.ClassPeriodRepository;
+import com.bookranker.rankings.repository.RankingRepository;
 import com.bookranker.students.dto.StudentResponse;
 import java.security.SecureRandom;
 import java.util.Locale;
@@ -27,13 +29,16 @@ public class ClassPeriodService {
 
   private final ClassPeriodRepository classPeriodRepository;
   private final TeacherRepository teacherRepository;
+  private final RankingRepository rankingRepository;
 
   public ClassPeriodService(
       ClassPeriodRepository classPeriodRepository,
-      TeacherRepository teacherRepository
+      TeacherRepository teacherRepository,
+      RankingRepository rankingRepository
   ) {
     this.classPeriodRepository = classPeriodRepository;
     this.teacherRepository = teacherRepository;
+    this.rankingRepository = rankingRepository;
   }
 
   @Transactional
@@ -77,6 +82,28 @@ public class ClassPeriodService {
             .map(student -> new StudentResponse(student.getId(), student.getUsername()))
             .toList()
     );
+  }
+
+  @Transactional
+  public ClassPeriodSummaryResponse updateClassPeriod(
+      String classPeriodId,
+      UpdateClassPeriodRequest request,
+      String teacherEmail
+  ) {
+    ClassPeriod classPeriod = findOwnedClassPeriod(classPeriodId, teacherEmail);
+    classPeriod.setName(request.name());
+    return new ClassPeriodSummaryResponse(
+        classPeriod.getId(),
+        classPeriod.getName(),
+        classPeriod.getJoinCode()
+    );
+  }
+
+  @Transactional
+  public void deleteClassPeriod(String classPeriodId, String teacherEmail) {
+    ClassPeriod classPeriod = findOwnedClassPeriod(classPeriodId, teacherEmail);
+    rankingRepository.deleteByStudentClassPeriodId(classPeriod.getId());
+    classPeriodRepository.delete(classPeriod);
   }
 
   @Transactional(readOnly = true)

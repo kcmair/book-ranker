@@ -13,4 +13,8 @@ public interface RankingRepository extends JpaRepository<Ranking, String> {
   long countByStudentId(String studentId);
 
   void deleteByStudentId(String studentId);
+
+  void deleteByBookId(String bookId);
+
+  void deleteByStudentClassPeriodId(String classPeriodId);
 }

@@ -192,6 +192,58 @@ Response:
 
 ---
 
+### 5.4 Update Class Period
+
+```
+PATCH /api/classes/{classId}
+```
+
+Headers:
+
+```
+Authorization: Bearer <token>
+```
+
+Request:
+
+```json id="c5"
+{
+  "name": "English 12 Honors"
+}
+```
+
+Response:
+
+```json id="c6"
+{
+  "id": "uuid",
+  "name": "English 12 Honors",
+  "joinCode": "K9X42M"
+}
+```
+
+---
+
+### 5.5 Delete Class Period
+
+```
+DELETE /api/classes/{classId}
+```
+
+Headers:
+
+```
+Authorization: Bearer <token>
+```
+
+Response:
+
+```text id="c7"
+204 No Content
+```
+
+---
+
 ## 6. Book APIs
 
 ---
@@ -240,6 +292,61 @@ Response:
   ]
 }
 ```
+
+---
+
+### 6.3 Update Book
+
+```
+PATCH /api/classes/{classId}/books/{bookId}
+```
+
+Headers:
+
+```
+Authorization: Bearer <token>
+```
+
+Request:
+
+```json id="b4"
+{
+  "title": "To Kill a Mockingbird",
+  "capacity": 12
+}
+```
+
+Response:
+
+```json id="b5"
+{
+  "id": "uuid",
+  "title": "To Kill a Mockingbird",
+  "capacity": 12
+}
+```
+
+---
+
+### 6.4 Delete Book
+
+```
+DELETE /api/classes/{classId}/books/{bookId}
+```
+
+Headers:
+
+```
+Authorization: Bearer <token>
+```
+
+Response:
+
+```text id="b6"
+204 No Content
+```
+
+Deleting a book also removes rankings for that book.
 
 ---
 
@@ -326,6 +433,59 @@ Response:
   "totalBooks": 5
 }
 ```
+
+---
+
+### 7.4 Update Student
+
+```
+PATCH /api/classes/{classId}/students/{studentId}
+```
+
+Headers:
+
+```
+Authorization: Bearer <token>
+```
+
+Request:
+
+```json id="s6"
+{
+  "username": "student456"
+}
+```
+
+Response:
+
+```json id="s7"
+{
+  "id": "uuid",
+  "username": "student456"
+}
+```
+
+---
+
+### 7.5 Delete Student
+
+```
+DELETE /api/classes/{classId}/students/{studentId}
+```
+
+Headers:
+
+```
+Authorization: Bearer <token>
+```
+
+Response:
+
+```text id="s8"
+204 No Content
+```
+
+Deleting a student also removes that student's rankings.
 
 ---
 
