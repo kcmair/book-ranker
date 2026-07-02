@@ -1,6 +1,8 @@
 package com.bookranker.domain;
 
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.blankOrNullString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -40,6 +42,27 @@ class DomainControllerTests {
                 }
                 """))
         .andExpect(status().isForbidden());
+
+    mockMvc.perform(get("/api/classes"))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void teacherCanListOnlyOwnedClassPeriods() throws Exception {
+    String teacherToken = registerAndLoginTeacher();
+    String otherTeacherToken = registerAndLoginTeacher();
+
+    createClassPeriod(teacherToken, "English 12");
+    createClassPeriod(teacherToken, "Creative Writing");
+    createClassPeriod(otherTeacherToken, "Other Teacher Class");
+
+    mockMvc.perform(get("/api/classes")
+            .header(HttpHeaders.AUTHORIZATION, bearer(teacherToken)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.classes.length()", equalTo(2)))
+        .andExpect(jsonPath("$.classes[*].id", everyItem(not(blankOrNullString()))))
+        .andExpect(jsonPath("$.classes[*].name", containsInAnyOrder("English 12", "Creative Writing")))
+        .andExpect(jsonPath("$.classes[*].joinCode", everyItem(not(blankOrNullString()))));
   }
 
   @Test
@@ -194,6 +217,21 @@ class DomainControllerTests {
     return objectMapper.readTree(loginResult.getResponse().getContentAsString())
         .get("token")
         .asText();
+  }
+
+  private MvcResult createClassPeriod(String token, String name) throws Exception {
+    return mockMvc.perform(post("/api/classes")
+            .header(HttpHeaders.AUTHORIZATION, bearer(token))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "name": "%s"
+                }
+                """.formatted(name)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.classId", not(blankOrNullString())))
+        .andExpect(jsonPath("$.joinCode", not(blankOrNullString())))
+        .andReturn();
   }
 
   private String addBook(String token, String classId, String title, int capacity) throws Exception {

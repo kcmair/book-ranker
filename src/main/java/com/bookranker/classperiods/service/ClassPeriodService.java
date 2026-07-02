@@ -4,6 +4,8 @@ import com.bookranker.auth.model.Teacher;
 import com.bookranker.auth.repository.TeacherRepository;
 import com.bookranker.books.dto.BookResponse;
 import com.bookranker.classperiods.dto.ClassPeriodDetailsResponse;
+import com.bookranker.classperiods.dto.ClassPeriodSummaryResponse;
+import com.bookranker.classperiods.dto.ClassPeriodsResponse;
 import com.bookranker.classperiods.dto.CreateClassPeriodRequest;
 import com.bookranker.classperiods.dto.CreateClassPeriodResponse;
 import com.bookranker.classperiods.model.ClassPeriod;
@@ -44,6 +46,20 @@ public class ClassPeriodService {
 
     ClassPeriod saved = classPeriodRepository.save(classPeriod);
     return new CreateClassPeriodResponse(saved.getId(), saved.getJoinCode());
+  }
+
+  @Transactional(readOnly = true)
+  public ClassPeriodsResponse listClassPeriods(String teacherEmail) {
+    Teacher teacher = findTeacherByEmail(teacherEmail);
+    return new ClassPeriodsResponse(
+        classPeriodRepository.findByTeacher_EmailOrderByCreatedAtDesc(teacher.getEmail()).stream()
+            .map(classPeriod -> new ClassPeriodSummaryResponse(
+                classPeriod.getId(),
+                classPeriod.getName(),
+                classPeriod.getJoinCode()
+            ))
+            .toList()
+    );
   }
 
   @Transactional(readOnly = true)

@@ -1,6 +1,7 @@
 package com.bookranker.classperiods.controller;
 
 import com.bookranker.classperiods.dto.ClassPeriodDetailsResponse;
+import com.bookranker.classperiods.dto.ClassPeriodsResponse;
 import com.bookranker.classperiods.dto.CreateClassPeriodRequest;
 import com.bookranker.classperiods.dto.CreateClassPeriodResponse;
 import com.bookranker.classperiods.service.ClassPeriodService;
@@ -29,6 +30,16 @@ public class ClassPeriodController {
 
   public ClassPeriodController(ClassPeriodService classPeriodService) {
     this.classPeriodService = classPeriodService;
+  }
+
+  @GetMapping
+  @Operation(summary = "List class periods for the authenticated teacher")
+  @ApiResponses(value = {
+      @ApiResponse(responseCode = "200", description = "Class periods returned successfully"),
+      @ApiResponse(responseCode = "401", description = "Missing or invalid teacher JWT")
+  })
+  public ClassPeriodsResponse listClassPeriods(Principal principal) {
+    return classPeriodService.listClassPeriods(principal.getName());
   }
 
   @PostMapping

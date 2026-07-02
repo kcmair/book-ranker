@@ -144,7 +144,35 @@ Response:
 
 ---
 
-### 5.2 Get Class Period Details
+### 5.2 List Class Periods
+
+```
+GET /api/classes
+```
+
+Headers:
+
+```
+Authorization: Bearer <token>
+```
+
+Response:
+
+```json id="c3"
+{
+  "classes": [
+    {
+      "id": "uuid",
+      "name": "English 12",
+      "joinCode": "K9X42M"
+    }
+  ]
+}
+```
+
+---
+
+### 5.3 Get Class Period Details
 
 ```
 GET /api/classes/{classId}
@@ -152,7 +180,7 @@ GET /api/classes/{classId}
 
 Response:
 
-```json id="c3"
+```json id="c4"
 {
   "id": "uuid",
   "name": "English 12",
