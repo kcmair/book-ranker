@@ -2,7 +2,9 @@ package com.bookranker.auth.controller;
 
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.blankOrNullString;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -56,5 +58,17 @@ class TeacherAuthControllerTests {
                 """))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.token", not(blankOrNullString())));
+  }
+
+  @Test
+  void corsPreflightAllowsLocalFrontend() throws Exception {
+    mockMvc.perform(options("/api/teachers/register")
+            .header("Origin", "http://localhost:5173")
+            .header("Access-Control-Request-Method", "POST")
+            .header("Access-Control-Request-Headers", "content-type,authorization"))
+        .andExpect(status().isOk())
+        .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:5173"))
+        .andExpect(header().string("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS"))
+        .andExpect(header().string("Access-Control-Allow-Headers", "content-type, authorization"));
   }
 }
