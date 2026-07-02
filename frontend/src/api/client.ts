@@ -1,0 +1,162 @@
+import type {
+  AssignmentResults,
+  AssignmentRun,
+  Book,
+  ClassPeriod,
+  RankingItem,
+  StudentStatus
+} from "../types";
+
+type RequestOptions = {
+  token?: string;
+  body?: unknown;
+};
+
+type CreateClassPeriodResponse = {
+  classId: string;
+  joinCode: string;
+};
+
+type JoinClassPeriodResponse = {
+  studentId: string;
+  classId: string;
+};
+
+type SubmitRankingsResponse = {
+  status: string;
+};
+
+type RunAssignmentResponse = {
+  assignmentRunId: string;
+  status: string;
+  totalCost: number;
+  satisfactionScore: number;
+  firstChoiceCount: number;
+  topThreeCount: number;
+  worseThanThirdCount: number;
+  unassignedStudentCount: number;
+};
+
+const baseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
+const useMocks = import.meta.env.VITE_USE_MOCKS === "true";
+
+async function request<T>(path: string, method: string, options: RequestOptions = {}): Promise<T> {
+  const headers = new Headers({ "Content-Type": "application/json" });
+
+  if (options.token) {
+    headers.set("Authorization", `Bearer ${options.token}`);
+  }
+
+  const response = await fetch(`${baseUrl}${path}`, {
+    method,
+    headers,
+    body: options.body ? JSON.stringify(options.body) : undefined
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || `${method} ${path} failed with ${response.status}`);
+  }
+
+  return response.json() as Promise<T>;
+}
+
+const liveClient = {
+  registerTeacher: (email: string, password: string) =>
+    request<{ teacherId: string }>("/api/teachers/register", "POST", { body: { email, password } }),
+  loginTeacher: (email: string, password: string) =>
+    request<{ token: string }>("/api/teachers/login", "POST", { body: { email, password } }),
+  createClassPeriod: (token: string, name: string) =>
+    request<CreateClassPeriodResponse>("/api/classes", "POST", { token, body: { name } }),
+  getClassPeriod: (token: string, classId: string) =>
+    request<ClassPeriod>(`/api/classes/${classId}`, "GET", { token }),
+  addBook: (token: string, classId: string, title: string, capacity: number) =>
+    request<{ bookId: string }>(`/api/classes/${classId}/books`, "POST", {
+      token,
+      body: { title, capacity }
+    }),
+  getBooks: (token: string, classId: string) =>
+    request<{ books: Book[] }>(`/api/classes/${classId}/books`, "GET", { token }),
+  joinClassPeriod: (joinCode: string, username: string) =>
+    request<JoinClassPeriodResponse>("/api/classes/join", "POST", { body: { joinCode, username } }),
+  submitRankings: (studentId: string, rankings: RankingItem[]) =>
+    request<SubmitRankingsResponse>(`/api/students/${studentId}/rankings`, "POST", {
+      body: { rankings }
+    }),
+  getStudentStatus: (studentId: string) =>
+    request<StudentStatus>(`/api/students/${studentId}/status`, "GET"),
+  runAssignment: (token: string, classId: string) =>
+    request<RunAssignmentResponse>(`/api/classes/${classId}/assign`, "POST", { token }),
+  getLatestAssignment: (token: string, classId: string) =>
+    request<AssignmentResults>(`/api/classes/${classId}/assignments/latest`, "GET", { token }),
+  getAssignmentHistory: (token: string, classId: string) =>
+    request<{ runs: AssignmentRun[] }>(`/api/classes/${classId}/assignments`, "GET", { token })
+};
+
+const mockClass: ClassPeriod = {
+  id: "class-demo",
+  name: "Period 3 Reading",
+  joinCode: "RANK42",
+  books: [
+    { id: "book-1", title: "A Wrinkle in Time", capacity: 3 },
+    { id: "book-2", title: "The Hobbit", capacity: 4 },
+    { id: "book-3", title: "Esperanza Rising", capacity: 3 }
+  ],
+  students: [
+    { id: "student-1", username: "maya" },
+    { id: "student-2", username: "leo" },
+    { id: "student-3", username: "nora" }
+  ]
+};
+
+const mockRun: AssignmentRun = {
+  runId: "run-demo",
+  createdAt: new Date().toISOString(),
+  status: "COMPLETED",
+  totalCost: 4,
+  satisfactionScore: 0.88,
+  firstChoiceCount: 2,
+  topThreeCount: 3,
+  worseThanThirdCount: 0,
+  unassignedStudentCount: 0
+};
+
+const mockClient: typeof liveClient = {
+  registerTeacher: async () => ({ teacherId: "teacher-demo" }),
+  loginTeacher: async () => ({ token: "mock-token" }),
+  createClassPeriod: async (_token, name) => ({
+    classId: mockClass.id,
+    joinCode: name ? mockClass.joinCode : mockClass.joinCode
+  }),
+  getClassPeriod: async () => mockClass,
+  addBook: async () => ({ bookId: "book-new" }),
+  getBooks: async () => ({ books: mockClass.books }),
+  joinClassPeriod: async () => ({ studentId: "student-demo", classId: mockClass.id }),
+  submitRankings: async () => ({ status: "submitted" }),
+  getStudentStatus: async () => ({
+    submitted: true,
+    rankCount: mockClass.books.length,
+    totalBooks: mockClass.books.length
+  }),
+  runAssignment: async () => ({
+    assignmentRunId: mockRun.runId,
+    status: mockRun.status,
+    totalCost: mockRun.totalCost,
+    satisfactionScore: mockRun.satisfactionScore,
+    firstChoiceCount: mockRun.firstChoiceCount,
+    topThreeCount: mockRun.topThreeCount,
+    worseThanThirdCount: mockRun.worseThanThirdCount,
+    unassignedStudentCount: mockRun.unassignedStudentCount
+  }),
+  getLatestAssignment: async () => ({
+    ...mockRun,
+    results: [
+      { studentId: "student-1", bookId: "book-1" },
+      { studentId: "student-2", bookId: "book-2" },
+      { studentId: "student-3", bookId: "book-3" }
+    ]
+  }),
+  getAssignmentHistory: async () => ({ runs: [mockRun] })
+};
+
+export const api = useMocks ? mockClient : liveClient;
