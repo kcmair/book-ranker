@@ -20,6 +20,8 @@ type CreateClassPeriodResponse = {
 type JoinClassPeriodResponse = {
   studentId: string;
   classId: string;
+  className?: string;
+  existingMember: boolean;
 };
 
 type SubmitRankingsResponse = {
@@ -58,6 +60,10 @@ async function request<T>(path: string, method: string, options: RequestOptions 
     throw new Error(message || `${method} ${path} failed with ${response.status}`);
   }
 
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
   return response.json() as Promise<T>;
 }
 
@@ -66,10 +72,19 @@ const liveClient = {
     request<{ teacherId: string }>("/api/teachers/register", "POST", { body: { email, password } }),
   loginTeacher: (email: string, password: string) =>
     request<{ token: string }>("/api/teachers/login", "POST", { body: { email, password } }),
+  listClassPeriods: (token: string) =>
+    request<{ classes: Pick<ClassPeriod, "id" | "name" | "joinCode">[] }>("/api/classes", "GET", { token }),
   createClassPeriod: (token: string, name: string) =>
     request<CreateClassPeriodResponse>("/api/classes", "POST", { token, body: { name } }),
   getClassPeriod: (token: string, classId: string) =>
     request<ClassPeriod>(`/api/classes/${classId}`, "GET", { token }),
+  updateClassPeriod: (token: string, classId: string, name: string) =>
+    request<Pick<ClassPeriod, "id" | "name" | "joinCode">>(`/api/classes/${classId}`, "PATCH", {
+      token,
+      body: { name }
+    }),
+  deleteClassPeriod: (token: string, classId: string) =>
+    request<void>(`/api/classes/${classId}`, "DELETE", { token }),
   addBook: (token: string, classId: string, title: string, capacity: number) =>
     request<{ bookId: string }>(`/api/classes/${classId}/books`, "POST", {
       token,
@@ -77,8 +92,24 @@ const liveClient = {
     }),
   getBooks: (token: string, classId: string) =>
     request<{ books: Book[] }>(`/api/classes/${classId}/books`, "GET", { token }),
+  updateBook: (token: string, classId: string, bookId: string, title: string, capacity: number) =>
+    request<Book>(`/api/classes/${classId}/books/${bookId}`, "PATCH", {
+      token,
+      body: { title, capacity }
+    }),
+  deleteBook: (token: string, classId: string, bookId: string) =>
+    request<void>(`/api/classes/${classId}/books/${bookId}`, "DELETE", { token }),
   joinClassPeriod: (joinCode: string, username: string) =>
     request<JoinClassPeriodResponse>("/api/classes/join", "POST", { body: { joinCode, username } }),
+  getStudentBooks: (studentId: string) =>
+    request<{ className?: string; books: Book[] }>(`/api/students/${studentId}/books`, "GET"),
+  updateStudent: (token: string, classId: string, studentId: string, username: string) =>
+    request<{ id: string; username: string }>(`/api/classes/${classId}/students/${studentId}`, "PATCH", {
+      token,
+      body: { username }
+    }),
+  deleteStudent: (token: string, classId: string, studentId: string) =>
+    request<void>(`/api/classes/${classId}/students/${studentId}`, "DELETE", { token }),
   submitRankings: (studentId: string, rankings: RankingItem[]) =>
     request<SubmitRankingsResponse>(`/api/students/${studentId}/rankings`, "POST", {
       body: { rankings }
@@ -124,14 +155,29 @@ const mockRun: AssignmentRun = {
 const mockClient: typeof liveClient = {
   registerTeacher: async () => ({ teacherId: "teacher-demo" }),
   loginTeacher: async () => ({ token: "mock-token" }),
+  listClassPeriods: async () => ({
+    classes: [{ id: mockClass.id, name: mockClass.name, joinCode: mockClass.joinCode }]
+  }),
   createClassPeriod: async (_token, name) => ({
     classId: mockClass.id,
     joinCode: name ? mockClass.joinCode : mockClass.joinCode
   }),
   getClassPeriod: async () => mockClass,
+  updateClassPeriod: async (_token, classId, name) => ({ id: classId, name, joinCode: mockClass.joinCode }),
+  deleteClassPeriod: async () => undefined,
   addBook: async () => ({ bookId: "book-new" }),
   getBooks: async () => ({ books: mockClass.books }),
-  joinClassPeriod: async () => ({ studentId: "student-demo", classId: mockClass.id }),
+  updateBook: async (_token, _classId, bookId, title, capacity) => ({ id: bookId, title, capacity }),
+  deleteBook: async () => undefined,
+  joinClassPeriod: async () => ({
+    studentId: "student-demo",
+    classId: mockClass.id,
+    className: mockClass.name,
+    existingMember: false
+  }),
+  getStudentBooks: async () => ({ className: mockClass.name, books: mockClass.books }),
+  updateStudent: async (_token, _classId, studentId, username) => ({ id: studentId, username }),
+  deleteStudent: async () => undefined,
   submitRankings: async () => ({ status: "submitted" }),
   getStudentStatus: async () => ({
     submitted: true,

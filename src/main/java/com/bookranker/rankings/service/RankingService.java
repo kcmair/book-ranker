@@ -47,6 +47,7 @@ public class RankingService {
     validateRankings(request, booksById);
 
     rankingRepository.deleteByStudentId(studentId);
+    rankingRepository.flush();
     Instant submittedAt = Instant.now();
 
     for (RankingItemRequest item : request.rankings()) {

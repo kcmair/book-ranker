@@ -9,6 +9,8 @@ public interface ClassPeriodRepository extends JpaRepository<ClassPeriod, String
 
   List<ClassPeriod> findByTeacher_EmailOrderByCreatedAtDesc(String teacherEmail);
 
+  List<ClassPeriod> findByTeacherIdOrderByCreatedAtAsc(String teacherId);
+
   Optional<ClassPeriod> findByJoinCode(String joinCode);
 
   boolean existsByJoinCode(String joinCode);

@@ -374,7 +374,8 @@ Response:
 ```json id="s2"
 {
   "studentId": "uuid",
-  "classId": "uuid"
+  "classId": "uuid",
+  "existingMember": false
 }
 ```
 
@@ -436,7 +437,29 @@ Response:
 
 ---
 
-### 7.4 Update Student
+### 7.4 Get Student Books
+
+```
+GET /api/students/{studentId}/books
+```
+
+Response:
+
+```json id="s6"
+{
+  "books": [
+    {
+      "id": "uuid",
+      "title": "Book Title",
+      "capacity": 10
+    }
+  ]
+}
+```
+
+---
+
+### 7.5 Update Student
 
 ```
 PATCH /api/classes/{classId}/students/{studentId}
@@ -450,7 +473,7 @@ Authorization: Bearer <token>
 
 Request:
 
-```json id="s6"
+```json id="s7"
 {
   "username": "student456"
 }
@@ -458,7 +481,7 @@ Request:
 
 Response:
 
-```json id="s7"
+```json id="s8"
 {
   "id": "uuid",
   "username": "student456"
@@ -467,7 +490,7 @@ Response:
 
 ---
 
-### 7.5 Delete Student
+### 7.6 Delete Student
 
 ```
 DELETE /api/classes/{classId}/students/{studentId}
@@ -481,7 +504,7 @@ Authorization: Bearer <token>
 
 Response:
 
-```text id="s8"
+```text id="s9"
 204 No Content
 ```
 
@@ -572,6 +595,58 @@ Response:
   ]
 }
 ```
+
+---
+
+### 8.4 Get Public Assignment Grid
+
+```
+GET /api/public/classes/{joinCode}/assignment-grid
+```
+
+Description:
+Returns a public spreadsheet-shaped assignment grid for the teacher associated with the supplied class join code. The grid uses the latest completed assignment run for each class.
+
+Authentication:
+Not required.
+
+Response:
+
+```json id="a4"
+{
+  "sourceJoinCode": "K9X42M",
+  "teacherId": "uuid",
+  "columns": [
+    {
+      "classId": "uuid",
+      "className": "English 12"
+    }
+  ],
+  "rows": [
+    {
+      "bookTitle": "The Hobbit",
+      "cells": {
+        "class-uuid": "Sam"
+      }
+    },
+    {
+      "bookTitle": "",
+      "cells": {
+        "class-uuid": "Mia"
+      }
+    }
+  ]
+}
+```
+
+Rules:
+
+* Columns represent all classes owned by the teacher associated with `joinCode`
+* Rows represent all book titles used by that teacher's classes
+* The same book title is grouped into one row group across classes
+* Each student appears on a separate row within the book group
+* `bookTitle` is populated only on the first row for a book group
+* Empty intersections are returned as empty strings
 
 ---
 

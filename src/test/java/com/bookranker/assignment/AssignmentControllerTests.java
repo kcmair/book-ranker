@@ -81,15 +81,78 @@ class AssignmentControllerTests {
         .andExpect(jsonPath("$.runs[0].unassignedStudentCount", equalTo(0)));
   }
 
+  @Test
+  void publicAssignmentGridUsesLatestRunsAcrossTeacherClasses() throws Exception {
+    String token = registerAndLoginTeacher();
+    ClassFixture firstClass = createClassPeriod(token, "First Assignment Class");
+    String firstSharedBookId = addBook(token, firstClass.classId(), "Shared Book", 2);
+    String unusedBookId = addBook(token, firstClass.classId(), "Unused Book", 1);
+    String alphaStudentId = joinClass(firstClass.joinCode(), "alpha-student");
+    String betaStudentId = joinClass(firstClass.joinCode(), "beta-student");
+    submitRankings(alphaStudentId, firstSharedBookId, unusedBookId);
+    submitRankings(betaStudentId, firstSharedBookId, unusedBookId);
+
+    ClassFixture secondClass = createRankedClassPeriod(token, "Second Assignment Class", "Shared Book", "Other Book");
+
+    mockMvc.perform(post("/api/classes/{classId}/assign", firstClass.classId())
+            .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+        .andExpect(status().isOk());
+    mockMvc.perform(post("/api/classes/{classId}/assign", secondClass.classId())
+            .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+        .andExpect(status().isOk());
+
+    mockMvc.perform(get("/api/public/classes/{joinCode}/assignment-grid", firstClass.joinCode()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.sourceJoinCode", equalTo(firstClass.joinCode())))
+        .andExpect(jsonPath("$.columns.length()", equalTo(2)))
+        .andExpect(jsonPath("$.columns[0].classId", equalTo(firstClass.classId())))
+        .andExpect(jsonPath("$.columns[1].classId", equalTo(secondClass.classId())))
+        .andExpect(jsonPath("$.rows[0].bookTitle", equalTo("Other Book")))
+        .andExpect(jsonPath("$.rows[0].cells['%s']".formatted(firstClass.classId()), equalTo("")))
+        .andExpect(jsonPath("$.rows[0].cells['%s']".formatted(secondClass.classId()), equalTo("student-two")))
+        .andExpect(jsonPath("$.rows[1].bookTitle", equalTo("Shared Book")))
+        .andExpect(jsonPath("$.rows[1].cells['%s']".formatted(firstClass.classId()), equalTo("alpha-student")))
+        .andExpect(jsonPath("$.rows[1].cells['%s']".formatted(secondClass.classId()), equalTo("student-one")))
+        .andExpect(jsonPath("$.rows[2].bookTitle", equalTo("")))
+        .andExpect(jsonPath("$.rows[2].cells['%s']".formatted(firstClass.classId()), equalTo("beta-student")))
+        .andExpect(jsonPath("$.rows[2].cells['%s']".formatted(secondClass.classId()), equalTo("")))
+        .andExpect(jsonPath("$.rows[3].bookTitle", equalTo("Unused Book")))
+        .andExpect(jsonPath("$.rows[3].cells['%s']".formatted(firstClass.classId()), equalTo("")))
+        .andExpect(jsonPath("$.rows[3].cells['%s']".formatted(secondClass.classId()), equalTo("")));
+  }
+
   private ClassFixture createRankedClassPeriod(String token) throws Exception {
+    return createRankedClassPeriod(token, "Assignment Class", "Book One", "Book Two");
+  }
+
+  private ClassFixture createRankedClassPeriod(
+      String token,
+      String className,
+      String firstBookTitle,
+      String secondBookTitle
+  ) throws Exception {
+    ClassFixture fixture = createClassPeriod(token, className);
+
+    String bookOneId = addBook(token, fixture.classId(), firstBookTitle, 1);
+    String bookTwoId = addBook(token, fixture.classId(), secondBookTitle, 1);
+    String studentOneId = joinClass(fixture.joinCode(), "student-one");
+    String studentTwoId = joinClass(fixture.joinCode(), "student-two");
+
+    submitRankings(studentOneId, bookOneId, bookTwoId);
+    submitRankings(studentTwoId, bookTwoId, bookOneId);
+
+    return fixture;
+  }
+
+  private ClassFixture createClassPeriod(String token, String className) throws Exception {
     MvcResult classResult = mockMvc.perform(post("/api/classes")
             .header(HttpHeaders.AUTHORIZATION, bearer(token))
             .contentType(MediaType.APPLICATION_JSON)
             .content("""
                 {
-                  "name": "Assignment Class"
+                  "name": "%s"
                 }
-                """))
+                """.formatted(className)))
         .andExpect(status().isOk())
         .andReturn();
 
@@ -97,15 +160,7 @@ class AssignmentControllerTests {
     String classId = classJson.get("classId").asText();
     String joinCode = classJson.get("joinCode").asText();
 
-    String bookOneId = addBook(token, classId, "Book One", 1);
-    String bookTwoId = addBook(token, classId, "Book Two", 1);
-    String studentOneId = joinClass(joinCode, "student-one");
-    String studentTwoId = joinClass(joinCode, "student-two");
-
-    submitRankings(studentOneId, bookOneId, bookTwoId);
-    submitRankings(studentTwoId, bookTwoId, bookOneId);
-
-    return new ClassFixture(classId);
+    return new ClassFixture(classId, joinCode);
   }
 
   private String registerAndLoginTeacher() throws Exception {
@@ -190,6 +245,6 @@ class AssignmentControllerTests {
     return "Bearer " + token;
   }
 
-  private record ClassFixture(String classId) {
+  private record ClassFixture(String classId, String joinCode) {
   }
 }

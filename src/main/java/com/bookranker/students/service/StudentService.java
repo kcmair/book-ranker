@@ -1,5 +1,7 @@
 package com.bookranker.students.service;
 
+import com.bookranker.books.dto.BookResponse;
+import com.bookranker.books.dto.BooksResponse;
 import com.bookranker.books.repository.BookRepository;
 import com.bookranker.classperiods.model.ClassPeriod;
 import com.bookranker.classperiods.service.ClassPeriodService;
@@ -40,6 +42,7 @@ public class StudentService {
   public JoinClassPeriodResponse joinClassPeriod(JoinClassPeriodRequest request) {
     ClassPeriod classPeriod = classPeriodService.findByJoinCode(request.joinCode());
     String username = request.username().trim();
+    boolean existingMember = studentRepository.findByClassPeriodIdAndUsername(classPeriod.getId(), username).isPresent();
 
     Student student = studentRepository.findByClassPeriodIdAndUsername(classPeriod.getId(), username)
         .orElseGet(() -> {
@@ -49,7 +52,7 @@ public class StudentService {
           return studentRepository.save(newStudent);
         });
 
-    return new JoinClassPeriodResponse(student.getId(), classPeriod.getId());
+    return new JoinClassPeriodResponse(student.getId(), classPeriod.getId(), existingMember);
   }
 
   @Transactional(readOnly = true)
@@ -59,6 +62,16 @@ public class StudentService {
     long rankCount = rankingRepository.countByStudentId(studentId);
 
     return new StudentStatusResponse(totalBooks > 0 && rankCount == totalBooks, rankCount, totalBooks);
+  }
+
+  @Transactional(readOnly = true)
+  public BooksResponse getBooks(String studentId) {
+    Student student = findStudent(studentId);
+    return new BooksResponse(
+        bookRepository.findByClassPeriodId(student.getClassPeriod().getId()).stream()
+            .map(book -> new BookResponse(book.getId(), book.getTitle(), book.getCapacity()))
+            .toList()
+    );
   }
 
   @Transactional

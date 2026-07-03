@@ -1,5 +1,6 @@
 package com.bookranker.students.controller;
 
+import com.bookranker.books.dto.BooksResponse;
 import com.bookranker.students.dto.JoinClassPeriodRequest;
 import com.bookranker.students.dto.JoinClassPeriodResponse;
 import com.bookranker.students.dto.StudentResponse;
@@ -58,6 +59,19 @@ public class StudentController {
       @PathVariable String studentId
   ) {
     return studentService.getStatus(studentId);
+  }
+
+  @GetMapping("/students/{studentId}/books")
+  @Operation(summary = "Get books available to a joined student")
+  @ApiResponses(value = {
+      @ApiResponse(responseCode = "200", description = "Student books returned successfully"),
+      @ApiResponse(responseCode = "404", description = "Student not found")
+  })
+  public BooksResponse getStudentBooks(
+      @Parameter(description = "Student ID", example = "550e8400-e29b-41d4-a716-446655440000")
+      @PathVariable String studentId
+  ) {
+    return studentService.getBooks(studentId);
   }
 
   @PatchMapping("/classes/{classId}/students/{studentId}")
