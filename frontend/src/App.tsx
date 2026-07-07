@@ -440,6 +440,9 @@ function BooksView(props: BooksViewProps) {
   const [copiedStudentUrl, setCopiedStudentUrl] = useState(false);
   const [confirmation, setConfirmation] = useState<Confirmation>(null);
   const studentUrl = buildPollUrl(props.classPeriod?.joinCode);
+  const totalCapacity = (props.classPeriod?.books ?? []).reduce((sum, book) => sum + book.capacity, 0);
+  const studentCount = props.classPeriod?.students.length ?? 0;
+  const hasTooManyStudents = studentCount > totalCapacity;
 
   async function addBook() {
     return withNotice(setLoading, setNotice, "book", async () => {
@@ -508,6 +511,15 @@ function BooksView(props: BooksViewProps) {
     });
   }
 
+  async function clearClassStudents() {
+    return withNotice(setLoading, setNotice, "clear-students", async () => {
+      await api.clearClassStudents(props.token, props.classId);
+      const details = await api.getClassPeriod(props.token, props.classId);
+      props.onClassPeriod(details);
+      setNotice({ kind: "success", message: "Student data cleared." });
+    });
+  }
+
   function confirmDeleteStudent(student: ClassPeriod["students"][number]) {
     setConfirmation({
       title: "Remove student",
@@ -516,6 +528,18 @@ function BooksView(props: BooksViewProps) {
       onConfirm: () => {
         setConfirmation(null);
         void deleteStudent(student);
+      }
+    });
+  }
+
+  function confirmClearClassStudents() {
+    setConfirmation({
+      title: "Clear student data",
+      message: `Clear all student data from ${props.classPeriod?.name ?? "this class"}? This removes students, rankings, assignment results, and assignment runs while preserving the class, join code, and books.`,
+      confirmLabel: "Clear",
+      onConfirm: () => {
+        setConfirmation(null);
+        void clearClassStudents();
       }
     });
   }
@@ -562,8 +586,8 @@ function BooksView(props: BooksViewProps) {
       <Panel title="Assignment" icon={<BarChart3 size={18} />}>
         <div className="metric-grid">
           <Metric label="Books" value={props.classPeriod?.books.length ?? 0} />
-          <Metric label="Capacity" value={(props.classPeriod?.books ?? []).reduce((sum, book) => sum + book.capacity, 0)} />
-          <Metric label="Students" value={props.classPeriod?.students.length ?? 0} />
+          <Metric label="Capacity" value={totalCapacity} />
+          <Metric label="Students" value={studentCount} valueTone={hasTooManyStudents ? "danger" : undefined} />
         </div>
         <ActionButton icon={<Check size={16} />} label="Run assignment" busy={loading === "assign"} onClick={runAssignment} />
       </Panel>
@@ -595,7 +619,16 @@ function BooksView(props: BooksViewProps) {
       <Panel title="Students" icon={<ClipboardList size={18} />} wide>
         <div className="metric-grid two">
           <CopyableMetric label="Student URL" value={studentUrl} copied={copiedStudentUrl} onCopy={copyStudentUrl} />
-          <Metric label="Students" value={props.classPeriod?.students.length ?? 0} />
+          <Metric label="Students" value={studentCount} valueTone={hasTooManyStudents ? "danger" : undefined} />
+        </div>
+        <div className="section-actions">
+          <ActionButton
+            icon={<Users size={16} />}
+            label="Clear students"
+            busy={loading === "clear-students"}
+            onClick={confirmClearClassStudents}
+            variant="secondary"
+          />
         </div>
         <EditableStudentTable
           students={props.classPeriod?.students ?? []}
@@ -813,6 +846,14 @@ function ResultsView(props: ResultsViewProps) {
     () => new Map((props.classPeriod?.students ?? []).map((student) => [student.id, student.username])),
     [props.classPeriod]
   );
+  const unassignedStudents = useMemo(() => {
+    if (!props.latestAssignment) {
+      return [];
+    }
+
+    const assignedStudentIds = new Set(props.latestAssignment.results.map((result) => result.studentId));
+    return (props.classPeriod?.students ?? []).filter((student) => !assignedStudentIds.has(student.id));
+  }, [props.classPeriod, props.latestAssignment]);
 
   async function refreshResults() {
     return withNotice(setLoading, setNotice, "results", async () => {
@@ -839,8 +880,7 @@ function ResultsView(props: ResultsViewProps) {
       </Panel>
 
       <Panel title="Current metrics" icon={<BarChart3 size={18} />} wide>
-        <div className="metric-grid six">
-          <Metric label="Cost" value={props.latestAssignment?.totalCost ?? "-"} />
+        <div className="metric-grid five">
           <Metric label="Satisfaction" value={formatPercent(props.latestAssignment?.satisfactionScore)} />
           <Metric label="First choice" value={props.latestAssignment?.firstChoiceCount ?? 0} />
           <Metric label="Top three" value={props.latestAssignment?.topThreeCount ?? 0} />
@@ -862,6 +902,12 @@ function ResultsView(props: ResultsViewProps) {
               <tr key={`${result.studentId}-${result.bookId}`}>
                 <td>{studentNames.get(result.studentId) ?? result.studentId}</td>
                 <td>{bookNames.get(result.bookId) ?? result.bookId}</td>
+              </tr>
+            ))}
+            {unassignedStudents.map((student) => (
+              <tr key={`${student.id}-unassigned`}>
+                <td>{student.username}</td>
+                <td className="danger-text">Unassigned</td>
               </tr>
             ))}
           </tbody>
@@ -938,11 +984,19 @@ function ActionButton({
   );
 }
 
-function Metric({ label, value }: { label: string; value: string | number }) {
+function Metric({
+  label,
+  value,
+  valueTone
+}: {
+  label: string;
+  value: string | number;
+  valueTone?: "danger";
+}) {
   return (
     <div className="metric">
       <span>{label}</span>
-      <strong>{value}</strong>
+      <strong className={valueTone === "danger" ? "danger-text" : undefined}>{value}</strong>
     </div>
   );
 }

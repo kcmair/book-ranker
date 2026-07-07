@@ -112,6 +112,8 @@ const liveClient = {
     }),
   deleteStudent: (token: string, classId: string, studentId: string) =>
     request<void>(`/api/classes/${classId}/students/${studentId}`, "DELETE", { token }),
+  clearClassStudents: (token: string, classId: string) =>
+    request<void>(`/api/classes/${classId}/students`, "DELETE", { token }),
   submitRankings: (studentId: string, rankings: RankingItem[]) =>
     request<SubmitRankingsResponse>(`/api/students/${studentId}/rankings`, "POST", {
       body: { rankings }
@@ -208,6 +210,7 @@ const mockClient: typeof liveClient = {
   getStudentBooks: async () => ({ className: mockClass.name, books: mockClass.books }),
   updateStudent: async (_token, _classId, studentId, username) => ({ id: studentId, username }),
   deleteStudent: async () => undefined,
+  clearClassStudents: async () => undefined,
   submitRankings: async () => ({ status: "submitted" }),
   getStudentStatus: async () => ({
     submitted: true,

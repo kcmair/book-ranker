@@ -30,6 +30,7 @@ out/
 ### JavaScript / TypeScript ###
 node_modules/
 dist/
+frontend/.vite/
 *.tsbuildinfo
 
 ### NetBeans ###

@@ -418,6 +418,10 @@ input:focus {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.metric-grid.five {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .metric-grid.six {
   grid-template-columns: repeat(6, minmax(0, 1fr));
 }
@@ -444,6 +448,11 @@ input:focus {
   overflow-wrap: anywhere;
   color: #17211d;
   font-size: 1.25rem;
+}
+
+.danger-text {
+  color: #b42318 !important;
+  font-weight: 900;
 }
 
 .copyable-metric {
@@ -595,6 +604,12 @@ tr:last-child td {
   color: #234f3d;
   background: #f8faf8;
   font-weight: 800;
+}
+
+.section-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
 }
 
 .compact-list {
@@ -772,6 +787,7 @@ tr:last-child td {
   .form-grid.two,
   .book-entry,
   .metric-grid,
+  .metric-grid.five,
   .metric-grid.six,
   .spreadsheet-meta {
     grid-template-columns: 1fr;
