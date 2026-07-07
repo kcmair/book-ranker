@@ -16,4 +16,6 @@ public interface AssignmentRunRepository extends JpaRepository<AssignmentRun, St
   );
 
   List<AssignmentRun> findByClassPeriodIdOrderByCreatedAtDesc(String classPeriodId);
+
+  void deleteByClassPeriodId(String classPeriodId);
 }

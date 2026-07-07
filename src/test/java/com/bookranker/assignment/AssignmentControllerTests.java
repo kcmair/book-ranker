@@ -3,6 +3,7 @@ package com.bookranker.assignment;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.blankOrNullString;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -135,6 +136,40 @@ class AssignmentControllerTests {
         .andExpect(jsonPath("$.rows[3].bookTitle", equalTo("Unused Book")))
         .andExpect(jsonPath("$.rows[3].cells['%s']".formatted(firstClass.classId()), equalTo("")))
         .andExpect(jsonPath("$.rows[3].cells['%s']".formatted(secondClass.classId()), equalTo("")));
+  }
+
+  @Test
+  void teacherCanClearStudentDataForNewTerm() throws Exception {
+    String token = registerAndLoginTeacher();
+    ClassFixture fixture = createRankedClassPeriod(token);
+
+    mockMvc.perform(post("/api/classes/{classId}/assign", fixture.classId())
+            .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+        .andExpect(status().isOk());
+
+    mockMvc.perform(delete("/api/classes/{classId}/students", fixture.classId()))
+        .andExpect(status().isForbidden());
+
+    mockMvc.perform(delete("/api/classes/{classId}/students", fixture.classId())
+            .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+        .andExpect(status().isNoContent());
+
+    mockMvc.perform(get("/api/classes/{classId}", fixture.classId())
+            .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.books.length()", equalTo(2)))
+        .andExpect(jsonPath("$.students.length()", equalTo(0)));
+
+    mockMvc.perform(get("/api/classes/{classId}/assignments/latest", fixture.classId())
+            .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+        .andExpect(status().isNotFound());
+
+    mockMvc.perform(get("/api/public/classes/{joinCode}/assignment-grid", fixture.joinCode()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.assignmentRunId").doesNotExist())
+        .andExpect(jsonPath("$.rows.length()", equalTo(2)))
+        .andExpect(jsonPath("$.rows[0].students.length()", equalTo(0)))
+        .andExpect(jsonPath("$.rows[1].students.length()", equalTo(0)));
   }
 
   private ClassFixture createRankedClassPeriod(String token) throws Exception {

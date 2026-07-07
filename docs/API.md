@@ -244,6 +244,42 @@ Response:
 
 ---
 
+### 5.6 Clear Class Student Data
+
+```
+DELETE /api/classes/{classId}/students
+```
+
+Description:
+Clears a class period for a new year or semester while preserving the class period, join code, and books.
+
+Headers:
+
+```
+Authorization: Bearer <token>
+```
+
+Deleted data:
+
+* Students
+* Student rankings
+* Assignment runs
+* Assignment results
+
+Preserved data:
+
+* Class period
+* Join code
+* Books
+
+Response:
+
+```text id="c10"
+204 No Content
+```
+
+---
+
 ## 6. Book APIs
 
 ---

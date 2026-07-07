@@ -11,8 +11,11 @@ import com.bookranker.classperiods.dto.CreateClassPeriodResponse;
 import com.bookranker.classperiods.dto.UpdateClassPeriodRequest;
 import com.bookranker.classperiods.model.ClassPeriod;
 import com.bookranker.classperiods.repository.ClassPeriodRepository;
+import com.bookranker.assignment.repository.AssignmentRepository;
+import com.bookranker.assignment.repository.AssignmentRunRepository;
 import com.bookranker.rankings.repository.RankingRepository;
 import com.bookranker.students.dto.StudentResponse;
+import com.bookranker.students.repository.StudentRepository;
 import java.security.SecureRandom;
 import java.util.Locale;
 import org.springframework.http.HttpStatus;
@@ -30,15 +33,24 @@ public class ClassPeriodService {
   private final ClassPeriodRepository classPeriodRepository;
   private final TeacherRepository teacherRepository;
   private final RankingRepository rankingRepository;
+  private final StudentRepository studentRepository;
+  private final AssignmentRepository assignmentRepository;
+  private final AssignmentRunRepository assignmentRunRepository;
 
   public ClassPeriodService(
       ClassPeriodRepository classPeriodRepository,
       TeacherRepository teacherRepository,
-      RankingRepository rankingRepository
+      RankingRepository rankingRepository,
+      StudentRepository studentRepository,
+      AssignmentRepository assignmentRepository,
+      AssignmentRunRepository assignmentRunRepository
   ) {
     this.classPeriodRepository = classPeriodRepository;
     this.teacherRepository = teacherRepository;
     this.rankingRepository = rankingRepository;
+    this.studentRepository = studentRepository;
+    this.assignmentRepository = assignmentRepository;
+    this.assignmentRunRepository = assignmentRunRepository;
   }
 
   @Transactional
@@ -102,8 +114,19 @@ public class ClassPeriodService {
   @Transactional
   public void deleteClassPeriod(String classPeriodId, String teacherEmail) {
     ClassPeriod classPeriod = findOwnedClassPeriod(classPeriodId, teacherEmail);
+    assignmentRepository.deleteByAssignmentRunClassPeriodId(classPeriod.getId());
+    assignmentRunRepository.deleteByClassPeriodId(classPeriod.getId());
     rankingRepository.deleteByStudentClassPeriodId(classPeriod.getId());
     classPeriodRepository.delete(classPeriod);
+  }
+
+  @Transactional
+  public void clearStudentData(String classPeriodId, String teacherEmail) {
+    ClassPeriod classPeriod = findOwnedClassPeriod(classPeriodId, teacherEmail);
+    assignmentRepository.deleteByAssignmentRunClassPeriodId(classPeriod.getId());
+    assignmentRunRepository.deleteByClassPeriodId(classPeriod.getId());
+    rankingRepository.deleteByStudentClassPeriodId(classPeriod.getId());
+    studentRepository.deleteByClassPeriodId(classPeriod.getId());
   }
 
   @Transactional(readOnly = true)

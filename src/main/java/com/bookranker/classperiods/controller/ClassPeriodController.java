@@ -111,4 +111,25 @@ public class ClassPeriodController {
   ) {
     classPeriodService.deleteClassPeriod(classId, principal.getName());
   }
+
+  @DeleteMapping("/{classId}/students")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  @Operation(
+      summary = "Clear student data from a class period",
+      description = "Removes all students, rankings, assignment runs, and assignment results for the class period "
+          + "while preserving the class period, join code, and books."
+  )
+  @ApiResponses(value = {
+      @ApiResponse(responseCode = "204", description = "Class student data cleared successfully"),
+      @ApiResponse(responseCode = "401", description = "Missing or invalid teacher JWT"),
+      @ApiResponse(responseCode = "403", description = "Class period belongs to another teacher"),
+      @ApiResponse(responseCode = "404", description = "Class period not found")
+  })
+  public void clearStudentData(
+      @Parameter(description = "Class period ID", example = "550e8400-e29b-41d4-a716-446655440000")
+      @PathVariable String classId,
+      Principal principal
+  ) {
+    classPeriodService.clearStudentData(classId, principal.getName());
+  }
 }

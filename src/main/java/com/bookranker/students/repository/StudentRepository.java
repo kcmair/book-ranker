@@ -12,4 +12,6 @@ public interface StudentRepository extends JpaRepository<Student, String> {
   Optional<Student> findByIdAndClassPeriodId(String id, String classPeriodId);
 
   Optional<Student> findByClassPeriodIdAndUsername(String classPeriodId, String username);
+
+  void deleteByClassPeriodId(String classPeriodId);
 }
