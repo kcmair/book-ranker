@@ -423,6 +423,7 @@ input:focus {
 }
 
 .metric {
+  position: relative;
   min-height: 70px;
   padding: 11px;
   border: 1px solid #d8e3dd;
@@ -443,6 +444,111 @@ input:focus {
   overflow-wrap: anywhere;
   color: #17211d;
   font-size: 1.25rem;
+}
+
+.copyable-metric {
+  padding-right: 42px;
+}
+
+.copyable-metric button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #c7d6cf;
+  border-radius: 6px;
+  color: #234f3d;
+  background: #ffffff;
+}
+
+.spreadsheet-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid #d5e0da;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdfb 100%);
+}
+
+.spreadsheet-meta {
+  display: grid;
+  grid-template-columns: 1fr 150px minmax(220px, 1fr);
+  gap: 10px;
+  padding: 12px;
+  border-bottom: 1px solid #dfe8e3;
+}
+
+.spreadsheet-table {
+  min-width: 680px;
+  border: 0;
+  border-radius: 0;
+}
+
+.spreadsheet-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.spreadsheet-table th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  min-width: 220px;
+  border-right: 1px solid #d5e0da;
+}
+
+.spreadsheet-table td:first-child {
+  min-width: 220px;
+}
+
+.spreadsheet-table tbody th {
+  color: #17211d;
+  background: #ffffff;
+  font-size: 0.9rem;
+  text-transform: none;
+}
+
+.spreadsheet-table td {
+  min-width: 160px;
+  white-space: pre-wrap;
+}
+
+.spreadsheet-table tbody tr:nth-child(even) td,
+.spreadsheet-table tbody tr:nth-child(even) th {
+  background: #f8fbf9;
+}
+
+.teacher-spreadsheet td {
+  height: 48px;
+}
+
+.student-cell,
+.student-chip-list span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 9px;
+  border: 1px solid #bfdbcf;
+  border-radius: 999px;
+  color: #173c2e;
+  background: #e8f6ee;
+  font-weight: 800;
+}
+
+.student-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.empty-cell {
+  color: #7a8d85;
+  font-style: italic;
 }
 
 table {
@@ -611,7 +717,8 @@ tr:last-child td {
   .form-grid.two,
   .book-entry,
   .metric-grid,
-  .metric-grid.six {
+  .metric-grid.six,
+  .spreadsheet-meta {
     grid-template-columns: 1fr;
   }
 }

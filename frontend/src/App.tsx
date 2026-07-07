@@ -4,6 +4,7 @@ import {
   BookOpen,
   Check,
   ClipboardList,
+  Copy,
   Edit3,
   Loader2,
   LogIn,
@@ -15,7 +16,16 @@ import {
   Users
 } from "lucide-react";
 import { api } from "./api/client";
-import type { AssignmentResults, AssignmentRun, Book, ClassPeriod, RankingItem, StudentStatus } from "./types";
+import type {
+  AssignmentResults,
+  AssignmentRun,
+  Book,
+  ClassAssignmentGrid,
+  ClassPeriod,
+  RankingItem,
+  StudentStatus,
+  TeacherAssignmentGrid
+} from "./types";
 
 type View = "classes" | "books" | "results";
 type AuthMode = "signup" | "login";
@@ -29,6 +39,24 @@ type TeacherClassSummary = {
 const storedToken = localStorage.getItem("bookranker.teacherToken") ?? "";
 const storedClassId = localStorage.getItem("bookranker.classId") ?? "";
 
+function getPollJoinCode() {
+  const path = window.location.pathname;
+
+  if (!path.startsWith("/poll/")) {
+    return "";
+  }
+
+  return decodeURIComponent(path.slice("/poll/".length).split("/")[0] ?? "").trim().toUpperCase();
+}
+
+function buildPollUrl(joinCode: string | undefined) {
+  if (!joinCode) {
+    return "-";
+  }
+
+  return `${window.location.origin}/poll/${encodeURIComponent(joinCode)}`;
+}
+
 function App() {
   const [view, setView] = useState<View>("classes");
   const [authMode, setAuthMode] = useState<AuthMode>("signup");
@@ -36,7 +64,7 @@ function App() {
   const [classId, setClassId] = useState(storedClassId);
   const [classPeriod, setClassPeriod] = useState<ClassPeriod | null>(null);
   const [latestAssignment, setLatestAssignment] = useState<AssignmentResults | null>(null);
-  const isPollPath = window.location.pathname === "/poll";
+  const isPollPath = window.location.pathname === "/poll" || window.location.pathname.startsWith("/poll/");
 
   function persistToken(nextToken: string) {
     setToken(nextToken);
@@ -212,6 +240,7 @@ function TeacherLanding(props: TeacherLandingProps) {
   const [className, setClassName] = useState("");
   const [editingClassId, setEditingClassId] = useState("");
   const [editingClassName, setEditingClassName] = useState("");
+  const [teacherGrid, setTeacherGrid] = useState<TeacherAssignmentGrid | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
   const [loading, setLoading] = useState("");
 
@@ -272,6 +301,14 @@ function TeacherLanding(props: TeacherLandingProps) {
     });
   }
 
+  async function loadTeacherAssignmentGrid() {
+    return withNotice(setLoading, setNotice, "teacher-grid", async () => {
+      const grid = await api.getTeacherAssignmentGrid(props.token);
+      setTeacherGrid(grid);
+      setNotice({ kind: "success", message: "Assignment spreadsheet loaded." });
+    });
+  }
+
   return (
     <section className="teacher-home">
       <Panel title="Create class" icon={<Plus size={18} />}>
@@ -286,6 +323,13 @@ function TeacherLanding(props: TeacherLandingProps) {
 
       <Panel title="Current classes" icon={<Users size={18} />}>
         <div className="list-toolbar">
+          <ActionButton
+            icon={<ClipboardList size={16} />}
+            label="Assignment spreadsheet"
+            busy={loading === "teacher-grid"}
+            onClick={loadTeacherAssignmentGrid}
+            variant="secondary"
+          />
           <ActionButton
             icon={<RefreshCw size={16} />}
             label="Refresh"
@@ -348,6 +392,12 @@ function TeacherLanding(props: TeacherLandingProps) {
         </div>
       </Panel>
 
+      {teacherGrid && (
+        <Panel title="All class assignments" icon={<ClipboardList size={18} />} wide>
+          <TeacherAssignmentSpreadsheet grid={teacherGrid} />
+        </Panel>
+      )}
+
       <NoticeBanner notice={notice} />
     </section>
   );
@@ -367,6 +417,8 @@ function BooksView(props: BooksViewProps) {
   const [capacity, setCapacity] = useState(1);
   const [notice, setNotice] = useState<Notice>(null);
   const [loading, setLoading] = useState("");
+  const [copiedStudentUrl, setCopiedStudentUrl] = useState(false);
+  const studentUrl = buildPollUrl(props.classPeriod?.joinCode);
 
   async function addBook() {
     return withNotice(setLoading, setNotice, "book", async () => {
@@ -432,6 +484,22 @@ function BooksView(props: BooksViewProps) {
     });
   }
 
+  async function copyStudentUrl() {
+    if (studentUrl === "-") {
+      setNotice({ kind: "error", message: "No student URL is available yet." });
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(studentUrl);
+      setCopiedStudentUrl(true);
+      window.setTimeout(() => setCopiedStudentUrl(false), 1400);
+      setNotice({ kind: "success", message: "Student URL copied." });
+    } catch {
+      setNotice({ kind: "error", message: "Copy failed. Select the URL and copy it manually." });
+    }
+  }
+
   return (
     <section className="workspace-grid">
       <Panel title={props.classPeriod?.name ?? "Books"} icon={<BookOpen size={18} />} wide>
@@ -481,7 +549,7 @@ function BooksView(props: BooksViewProps) {
 
       <Panel title="Students" icon={<ClipboardList size={18} />} wide>
         <div className="metric-grid two">
-          <Metric label="Join code" value={props.classPeriod?.joinCode ?? "-"} />
+          <CopyableMetric label="Student URL" value={studentUrl} copied={copiedStudentUrl} onCopy={copyStudentUrl} />
           <Metric label="Students" value={props.classPeriod?.students.length ?? 0} />
         </div>
         <EditableStudentTable
@@ -497,7 +565,11 @@ function BooksView(props: BooksViewProps) {
 }
 
 function StudentPoll() {
-  const [joinCode, setJoinCode] = useState("");
+  const urlJoinCode = getPollJoinCode();
+  const hasUrlJoinCode = Boolean(urlJoinCode);
+  const [joinCode, setJoinCode] = useState(urlJoinCode);
+  const [publicAssignmentGrid, setPublicAssignmentGrid] = useState<ClassAssignmentGrid | null>(null);
+  const [assignmentGridChecked, setAssignmentGridChecked] = useState(!hasUrlJoinCode);
   const [username, setUsername] = useState("");
   const [studentId, setStudentId] = useState("");
   const [classId, setClassId] = useState("");
@@ -509,6 +581,36 @@ function StudentPoll() {
   const [rankings, setRankings] = useState<Record<string, number>>({});
   const [existingMember, setExistingMember] = useState(false);
   const hasPreviousRankings = Boolean(status && status.rankCount > 0);
+
+  useEffect(() => {
+    let active = true;
+
+    if (!urlJoinCode) {
+      setAssignmentGridChecked(true);
+      return;
+    }
+
+    setAssignmentGridChecked(false);
+    setPublicAssignmentGrid(null);
+
+    api.getClassAssignmentGrid(urlJoinCode)
+      .then((grid) => {
+        if (active) {
+          setPublicAssignmentGrid(grid.assignmentRunId ? grid : null);
+          setAssignmentGridChecked(true);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setPublicAssignmentGrid(null);
+          setAssignmentGridChecked(true);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [urlJoinCode]);
 
   async function joinClassPeriod() {
     return withNotice(setLoading, setNotice, "join", async () => {
@@ -553,13 +655,27 @@ function StudentPoll() {
       </header>
 
       <section className="poll-grid">
-        {!studentId && (
+        {!assignmentGridChecked && (
+          <Panel title="Loading assignment" icon={<Loader2 className="spin" size={18} />} wide>
+            <p className="empty-state">Checking whether assignments are available.</p>
+          </Panel>
+        )}
+
+        {publicAssignmentGrid && (
+          <Panel title="Assignment results" icon={<ClipboardList size={18} />} wide>
+            <ClassAssignmentSpreadsheet grid={publicAssignmentGrid} />
+          </Panel>
+        )}
+
+        {assignmentGridChecked && !publicAssignmentGrid && !studentId && (
           <Panel title="Join class" icon={<UserPlus size={18} />}>
-            <div className="form-grid two">
-              <label>
-                Join code
-                <input value={joinCode} onChange={(event) => setJoinCode(event.target.value.toUpperCase())} />
-              </label>
+            <div className={`form-grid ${hasUrlJoinCode ? "" : "two"}`}>
+              {!hasUrlJoinCode && (
+                <label>
+                  Join code
+                  <input value={joinCode} onChange={(event) => setJoinCode(event.target.value.toUpperCase())} />
+                </label>
+              )}
               <label>
                 Username
                 <input value={username} onChange={(event) => setUsername(event.target.value)} />
@@ -569,7 +685,7 @@ function StudentPoll() {
           </Panel>
         )}
 
-        {studentId && (
+        {assignmentGridChecked && !publicAssignmentGrid && studentId && (
           <Panel title="Rank books" icon={<BookOpen size={18} />} wide>
             <div className="poll-heading">
               <div>
@@ -613,7 +729,7 @@ function StudentPoll() {
           </Panel>
         )}
 
-        {status && (
+        {assignmentGridChecked && !publicAssignmentGrid && status && (
           <Panel title="Progress" icon={<BarChart3 size={18} />}>
             <div className="metric-grid two">
               <Metric label="Submitted" value={status.submitted ? "Yes" : "No"} />
@@ -748,7 +864,7 @@ function Panel({ title, icon, children, wide }: PanelProps) {
     <article className={`panel ${wide ? "wide" : ""}`}>
       <div className="panel-heading">
         {icon}
-        <h2>Class {title}</h2>
+        <h2>{title}</h2>
       </div>
       {children}
     </article>
@@ -781,6 +897,102 @@ function Metric({ label, value }: { label: string; value: string | number }) {
     <div className="metric">
       <span>{label}</span>
       <strong>{value}</strong>
+    </div>
+  );
+}
+
+function CopyableMetric({
+  label,
+  value,
+  copied,
+  onCopy
+}: {
+  label: string;
+  value: string | number;
+  copied: boolean;
+  onCopy: () => void;
+}) {
+  return (
+    <div className="metric copyable-metric">
+      <button type="button" aria-label={`Copy ${label}`} onClick={onCopy}>
+        {copied ? <Check size={15} /> : <Copy size={15} />}
+      </button>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function ClassAssignmentSpreadsheet({ grid }: { grid: ClassAssignmentGrid }) {
+  return (
+    <div className="spreadsheet-wrap public-assignment-grid">
+      <div className="spreadsheet-meta">
+        <Metric label="Class" value={grid.className} />
+        <Metric label="Join code" value={grid.joinCode} />
+        <Metric label="Run" value={grid.assignmentRunId ?? "-"} />
+      </div>
+      <table className="spreadsheet-table">
+        <thead>
+          <tr>
+            <th>Book</th>
+            <th>Students</th>
+          </tr>
+        </thead>
+        <tbody>
+          {grid.rows.map((row, rowIndex) => (
+            <tr key={`${row.bookTitle}-${rowIndex}`}>
+              <th scope="row">{row.bookTitle}</th>
+              <td>
+                {row.students.length > 0 ? (
+                  <div className="student-chip-list">
+                    {row.students.map((student) => (
+                      <span key={student}>{student}</span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="empty-cell">No assignment</span>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function TeacherAssignmentSpreadsheet({ grid }: { grid: TeacherAssignmentGrid }) {
+  const columns = grid.columns
+    .map((column, index) => ({
+      key: column.key ?? column.classId ?? `column-${index}`,
+      label: column.label ?? column.className ?? column.key ?? column.classId ?? `Column ${index + 1}`
+    }))
+    .filter((column) => column.key !== "book");
+
+  return (
+    <div className="spreadsheet-wrap teacher-assignment-grid">
+      <table className="spreadsheet-table teacher-spreadsheet">
+        <thead>
+          <tr>
+            <th>Book</th>
+            {columns.map((column) => (
+              <th key={column.key}>{column.label}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {grid.rows.map((row, rowIndex) => (
+            <tr key={`${row.bookTitle}-${rowIndex}`}>
+              <th scope="row">{row.bookTitle}</th>
+              {columns.map((column) => (
+                <td key={column.key}>
+                  {row.cells[column.key] ? <span className="student-cell">{row.cells[column.key]}</span> : ""}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

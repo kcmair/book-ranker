@@ -42,6 +42,36 @@ export type AssignmentResults = AssignmentMetrics & {
   results: AssignmentResult[];
 };
 
+export type ClassAssignmentGridRow = {
+  bookTitle: string;
+  students: string[];
+};
+
+export type ClassAssignmentGrid = {
+  classId?: string;
+  className: string;
+  joinCode: string;
+  assignmentRunId?: string | null;
+  rows: ClassAssignmentGridRow[];
+};
+
+export type TeacherAssignmentGridColumn = {
+  key?: string;
+  label?: string;
+  classId?: string;
+  className?: string;
+};
+
+export type TeacherAssignmentGridRow = {
+  bookTitle: string;
+  cells: Record<string, string>;
+};
+
+export type TeacherAssignmentGrid = {
+  columns: TeacherAssignmentGridColumn[];
+  rows: TeacherAssignmentGridRow[];
+};
+
 export type StudentStatus = {
   submitted: boolean;
   rankCount: number;

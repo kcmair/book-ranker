@@ -2,9 +2,11 @@ import type {
   AssignmentResults,
   AssignmentRun,
   Book,
+  ClassAssignmentGrid,
   ClassPeriod,
   RankingItem,
-  StudentStatus
+  StudentStatus,
+  TeacherAssignmentGrid
 } from "../types";
 
 type RequestOptions = {
@@ -121,7 +123,11 @@ const liveClient = {
   getLatestAssignment: (token: string, classId: string) =>
     request<AssignmentResults>(`/api/classes/${classId}/assignments/latest`, "GET", { token }),
   getAssignmentHistory: (token: string, classId: string) =>
-    request<{ runs: AssignmentRun[] }>(`/api/classes/${classId}/assignments`, "GET", { token })
+    request<{ runs: AssignmentRun[] }>(`/api/classes/${classId}/assignments`, "GET", { token }),
+  getClassAssignmentGrid: (joinCode: string) =>
+    request<ClassAssignmentGrid>(`/api/public/classes/${encodeURIComponent(joinCode)}/assignment-grid`, "GET"),
+  getTeacherAssignmentGrid: (token: string) =>
+    request<TeacherAssignmentGrid>("/api/teachers/me/assignment-grid", "GET", { token })
 };
 
 const mockClass: ClassPeriod = {
@@ -150,6 +156,30 @@ const mockRun: AssignmentRun = {
   topThreeCount: 3,
   worseThanThirdCount: 0,
   unassignedStudentCount: 0
+};
+
+const mockClassAssignmentGrid: ClassAssignmentGrid = {
+  classId: mockClass.id,
+  className: mockClass.name,
+  joinCode: mockClass.joinCode,
+  assignmentRunId: mockRun.runId,
+  rows: [
+    { bookTitle: "A Wrinkle in Time", students: ["maya"] },
+    { bookTitle: "The Hobbit", students: ["leo", "nora"] },
+    { bookTitle: "Esperanza Rising", students: [] }
+  ]
+};
+
+const mockTeacherAssignmentGrid: TeacherAssignmentGrid = {
+  columns: [
+    { classId: mockClass.id, className: mockClass.name },
+    { classId: "class-demo-2", className: "Period 4 Reading" }
+  ],
+  rows: [
+    { bookTitle: "A Wrinkle in Time", cells: { [mockClass.id]: "maya", "class-demo-2": "" } },
+    { bookTitle: "The Hobbit", cells: { [mockClass.id]: "leo", "class-demo-2": "jordan" } },
+    { bookTitle: "", cells: { [mockClass.id]: "nora", "class-demo-2": "" } }
+  ]
 };
 
 const mockClient: typeof liveClient = {
@@ -202,7 +232,9 @@ const mockClient: typeof liveClient = {
       { studentId: "student-3", bookId: "book-3" }
     ]
   }),
-  getAssignmentHistory: async () => ({ runs: [mockRun] })
+  getAssignmentHistory: async () => ({ runs: [mockRun] }),
+  getClassAssignmentGrid: async () => mockClassAssignmentGrid,
+  getTeacherAssignmentGrid: async () => mockTeacherAssignmentGrid
 };
 
 export const api = useMocks ? mockClient : liveClient;
