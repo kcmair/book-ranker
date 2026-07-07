@@ -30,6 +30,12 @@ import type {
 type View = "classes" | "books" | "results";
 type AuthMode = "signup" | "login";
 type Notice = { kind: "success" | "error"; message: string } | null;
+type Confirmation = {
+  title: string;
+  message: string;
+  confirmLabel?: string;
+  onConfirm: () => void;
+} | null;
 type TeacherClassSummary = {
   id: string;
   name: string;
@@ -243,6 +249,7 @@ function TeacherLanding(props: TeacherLandingProps) {
   const [teacherGrid, setTeacherGrid] = useState<TeacherAssignmentGrid | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
   const [loading, setLoading] = useState("");
+  const [confirmation, setConfirmation] = useState<Confirmation>(null);
 
   useEffect(() => {
     void refreshClasses();
@@ -298,6 +305,18 @@ function TeacherLanding(props: TeacherLandingProps) {
       const response = await api.listClassPeriods(props.token);
       setClasses(response.classes);
       setNotice({ kind: "success", message: "Class deleted." });
+    });
+  }
+
+  function confirmDeleteClass(classItem: TeacherClassSummary) {
+    setConfirmation({
+      title: "Remove class",
+      message: `Remove ${classItem.name}? This will delete the class and its related books, students, rankings, and assignments.`,
+      confirmLabel: "Remove",
+      onConfirm: () => {
+        setConfirmation(null);
+        void deleteClass(classItem);
+      }
     });
   }
 
@@ -381,7 +400,7 @@ function TeacherLanding(props: TeacherLandingProps) {
                     >
                       <Edit3 size={15} /> Edit
                     </button>
-                    <button onClick={() => deleteClass(classItem)}>
+                    <button onClick={() => confirmDeleteClass(classItem)}>
                       <Trash2 size={15} /> Remove
                     </button>
                   </>
@@ -399,6 +418,7 @@ function TeacherLanding(props: TeacherLandingProps) {
       )}
 
       <NoticeBanner notice={notice} />
+      <ConfirmationDialog confirmation={confirmation} onCancel={() => setConfirmation(null)} />
     </section>
   );
 }
@@ -418,6 +438,7 @@ function BooksView(props: BooksViewProps) {
   const [notice, setNotice] = useState<Notice>(null);
   const [loading, setLoading] = useState("");
   const [copiedStudentUrl, setCopiedStudentUrl] = useState(false);
+  const [confirmation, setConfirmation] = useState<Confirmation>(null);
   const studentUrl = buildPollUrl(props.classPeriod?.joinCode);
 
   async function addBook() {
@@ -457,6 +478,18 @@ function BooksView(props: BooksViewProps) {
     });
   }
 
+  function confirmDeleteBook(book: Book) {
+    setConfirmation({
+      title: "Remove book",
+      message: `Remove ${book.title}? Existing student rankings and assignments for this book may be affected.`,
+      confirmLabel: "Remove",
+      onConfirm: () => {
+        setConfirmation(null);
+        void deleteBook(book);
+      }
+    });
+  }
+
   async function updateStudent(student: ClassPeriod["students"][number], username: string) {
     return withNotice(setLoading, setNotice, `update-student-${student.id}`, async () => {
       await api.updateStudent(props.token, props.classId, student.id, username);
@@ -472,6 +505,18 @@ function BooksView(props: BooksViewProps) {
       const details = await api.getClassPeriod(props.token, props.classId);
       props.onClassPeriod(details);
       setNotice({ kind: "success", message: "Student removed." });
+    });
+  }
+
+  function confirmDeleteStudent(student: ClassPeriod["students"][number]) {
+    setConfirmation({
+      title: "Remove student",
+      message: `Remove ${student.username}? Their rankings and assignment records may be deleted.`,
+      confirmLabel: "Remove",
+      onConfirm: () => {
+        setConfirmation(null);
+        void deleteStudent(student);
+      }
     });
   }
 
@@ -543,7 +588,7 @@ function BooksView(props: BooksViewProps) {
         <EditableBookTable
           books={props.classPeriod?.books ?? []}
           onUpdate={updateBook}
-          onDelete={deleteBook}
+          onDelete={confirmDeleteBook}
         />
       </Panel>
 
@@ -555,11 +600,12 @@ function BooksView(props: BooksViewProps) {
         <EditableStudentTable
           students={props.classPeriod?.students ?? []}
           onUpdate={updateStudent}
-          onDelete={deleteStudent}
+          onDelete={confirmDeleteStudent}
         />
       </Panel>
 
       <NoticeBanner notice={notice} />
+      <ConfirmationDialog confirmation={confirmation} onCancel={() => setConfirmation(null)} />
     </section>
   );
 }
@@ -1161,6 +1207,37 @@ function NoticeBanner({ notice }: { notice: Notice }) {
   }
 
   return <div className={`notice ${notice.kind}`}>{notice.message}</div>;
+}
+
+function ConfirmationDialog({
+  confirmation,
+  onCancel
+}: {
+  confirmation: Confirmation;
+  onCancel: () => void;
+}) {
+  if (!confirmation) {
+    return null;
+  }
+
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <div className="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title">
+        <div>
+          <h2 id="confirm-dialog-title">{confirmation.title}</h2>
+          <p>{confirmation.message}</p>
+        </div>
+        <div className="confirm-actions">
+          <button type="button" onClick={onCancel}>
+            Cancel
+          </button>
+          <button type="button" className="danger" onClick={confirmation.onConfirm}>
+            {confirmation.confirmLabel ?? "Confirm"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 async function withNotice(

@@ -2,7 +2,6 @@ const baseUrl = process.env.BOOKRANKER_API_BASE_URL ?? "http://127.0.0.1:8080";
 const email = process.env.BOOKRANKER_SEED_EMAIL ?? "seed.teacher@bookranker.test";
 const password = process.env.BOOKRANKER_SEED_PASSWORD ?? "SeedPass123!";
 
-const classNames = ["English 1", "English 2", "English 3", "English 4"];
 const bookTitles = [
   "The Hobbit",
   "1984",
@@ -12,7 +11,13 @@ const bookTitles = [
   "The Westing Game"
 ];
 const capacityPerBook = 5;
-const studentsPerClass = bookTitles.length * capacityPerBook;
+const fullClassCapacity = bookTitles.length * capacityPerBook;
+const classConfigs = [
+  { name: "English 1", studentCount: fullClassCapacity + 2 },
+  { name: "English 2", studentCount: fullClassCapacity - 2 },
+  { name: "English 3", studentCount: fullClassCapacity - 3 },
+  { name: "English 4", studentCount: fullClassCapacity }
+];
 
 async function request(path, method, body, token, allowedStatuses = [200]) {
   const headers = { "Content-Type": "application/json" };
@@ -48,17 +53,59 @@ function parseBody(text) {
   }
 }
 
-function rankingsFor(studentIndex, books) {
-  const preferred = studentIndex % books.length;
+function hashString(value) {
+  let hash = 2166136261;
 
-  return books.map((_, offset) => {
-    const bookIndex = (preferred + offset) % books.length;
-    return { bookId: books[bookIndex].id, rank: offset + 1 };
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  return hash >>> 0;
+}
+
+function mulberry32(seed) {
+  return function random() {
+    seed += 0x6d2b79f5;
+    let value = seed;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function shuffle(items, random) {
+  const shuffled = [...items];
+
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(random() * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+
+  return shuffled;
+}
+
+function rankingsFor(className, studentIndex, books) {
+  const random = mulberry32(hashString(`${className}:${studentIndex}:book-rankings`));
+
+  return shuffle(books, random).map((book, index) => {
+    return { bookId: book.id, rank: index + 1 };
   });
 }
 
 function studentUsername(className, index) {
   return `${className.toLowerCase().replace(/\s+/g, "-")}-student-${String(index + 1).padStart(2, "0")}`;
+}
+
+function seededStudentIndex(className, username) {
+  const prefix = `${className.toLowerCase().replace(/\s+/g, "-")}-student-`;
+
+  if (!username.startsWith(prefix)) {
+    return null;
+  }
+
+  const parsed = Number(username.slice(prefix.length));
+  return Number.isInteger(parsed) && parsed > 0 ? parsed - 1 : null;
 }
 
 async function ensureTeacher() {
@@ -97,38 +144,85 @@ async function ensureBooks(token, classPeriod) {
   return refreshed.data.books.filter((book) => bookTitles.includes(book.title));
 }
 
-async function ensureStudentsAndRankings(classPeriod, books) {
-  const students = [];
+async function loadClass(token, classId) {
+  return request(`/api/classes/${classId}`, "GET", undefined, token).then((result) => result.data);
+}
 
-  for (let index = 0; index < studentsPerClass; index += 1) {
-    const username = studentUsername(classPeriod.name, index);
-    const joined = await request("/api/classes/join", "POST", { joinCode: classPeriod.joinCode, username });
-    await request(
-      `/api/students/${joined.data.studentId}/rankings`,
-      "POST",
-      { rankings: rankingsFor(index, books) }
-    );
-    students.push({ id: joined.data.studentId, username });
+async function trimSeededStudents(token, classPeriod, targetStudentCount) {
+  const details = await loadClass(token, classPeriod.id);
+  let skipped = 0;
+
+  for (const student of details.students) {
+    const index = seededStudentIndex(classPeriod.name, student.username);
+
+    if (index !== null && index >= targetStudentCount) {
+      try {
+        await request(
+          `/api/classes/${classPeriod.id}/students/${student.id}`,
+          "DELETE",
+          undefined,
+          token
+        );
+      } catch {
+        skipped += 1;
+      }
+    }
   }
 
-  return students;
+  return skipped;
+}
+
+async function ensureStudentsAndRankings(token, classPeriod, books, targetStudentCount) {
+  const students = [];
+  const skippedDeletes = await trimSeededStudents(token, classPeriod, targetStudentCount);
+  const refreshed = await loadClass(token, classPeriod.id);
+  const studentsByUsername = new Map(refreshed.students.map((student) => [student.username, student]));
+
+  for (let index = 0; index < targetStudentCount; index += 1) {
+    const username = studentUsername(classPeriod.name, index);
+    const existing = studentsByUsername.get(username);
+    const studentId = existing?.id
+        ?? (await request("/api/classes/join", "POST", { joinCode: classPeriod.joinCode, username })).data.studentId;
+
+    await request(
+      `/api/students/${studentId}/rankings`,
+      "POST",
+      { rankings: rankingsFor(classPeriod.name, index, books) }
+    );
+    students.push({ id: studentId, username });
+  }
+
+  const finalDetails = await loadClass(token, classPeriod.id);
+  const actualSeededStudents = finalDetails.students
+    .filter((student) => seededStudentIndex(classPeriod.name, student.username) !== null)
+    .length;
+
+  return { students, skippedDeletes, actualSeededStudents };
 }
 
 async function main() {
   const token = await ensureTeacher();
   const seededClasses = [];
 
-  for (const className of classNames) {
-    const classPeriod = await ensureClass(token, className);
+  for (const classConfig of classConfigs) {
+    const classPeriod = await ensureClass(token, classConfig.name);
     const books = await ensureBooks(token, classPeriod);
-    const students = await ensureStudentsAndRankings(classPeriod, books);
+    const { students, skippedDeletes, actualSeededStudents } = await ensureStudentsAndRankings(
+      token,
+      classPeriod,
+      books,
+      classConfig.studentCount
+    );
 
     seededClasses.push({
       className: classPeriod.name,
       classId: classPeriod.id,
       joinCode: classPeriod.joinCode,
       books: books.length,
-      students: students.length
+      targetStudents: students.length,
+      actualSeededStudents,
+      capacityDelta: actualSeededStudents - fullClassCapacity,
+      skippedDeletes
     });
   }
 
@@ -137,7 +231,7 @@ async function main() {
     teacher: { email, password },
     booksPerClass: bookTitles.length,
     capacityPerBook,
-    studentsPerClass,
+    fullClassCapacity,
     classes: seededClasses
   }, null, 2));
 }
