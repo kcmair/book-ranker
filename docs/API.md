@@ -144,7 +144,35 @@ Response:
 
 ---
 
-### 5.2 Get Class Period Details
+### 5.2 List Class Periods
+
+```
+GET /api/classes
+```
+
+Headers:
+
+```
+Authorization: Bearer <token>
+```
+
+Response:
+
+```json id="c3"
+{
+  "classes": [
+    {
+      "id": "uuid",
+      "name": "English 12",
+      "joinCode": "K9X42M"
+    }
+  ]
+}
+```
+
+---
+
+### 5.3 Get Class Period Details
 
 ```
 GET /api/classes/{classId}
@@ -152,7 +180,7 @@ GET /api/classes/{classId}
 
 Response:
 
-```json id="c3"
+```json id="c4"
 {
   "id": "uuid",
   "name": "English 12",
@@ -160,6 +188,58 @@ Response:
   "books": [],
   "students": []
 }
+```
+
+---
+
+### 5.4 Update Class Period
+
+```
+PATCH /api/classes/{classId}
+```
+
+Headers:
+
+```
+Authorization: Bearer <token>
+```
+
+Request:
+
+```json id="c5"
+{
+  "name": "English 12 Honors"
+}
+```
+
+Response:
+
+```json id="c6"
+{
+  "id": "uuid",
+  "name": "English 12 Honors",
+  "joinCode": "K9X42M"
+}
+```
+
+---
+
+### 5.5 Delete Class Period
+
+```
+DELETE /api/classes/{classId}
+```
+
+Headers:
+
+```
+Authorization: Bearer <token>
+```
+
+Response:
+
+```text id="c7"
+204 No Content
 ```
 
 ---
@@ -215,6 +295,61 @@ Response:
 
 ---
 
+### 6.3 Update Book
+
+```
+PATCH /api/classes/{classId}/books/{bookId}
+```
+
+Headers:
+
+```
+Authorization: Bearer <token>
+```
+
+Request:
+
+```json id="b4"
+{
+  "title": "To Kill a Mockingbird",
+  "capacity": 12
+}
+```
+
+Response:
+
+```json id="b5"
+{
+  "id": "uuid",
+  "title": "To Kill a Mockingbird",
+  "capacity": 12
+}
+```
+
+---
+
+### 6.4 Delete Book
+
+```
+DELETE /api/classes/{classId}/books/{bookId}
+```
+
+Headers:
+
+```
+Authorization: Bearer <token>
+```
+
+Response:
+
+```text id="b6"
+204 No Content
+```
+
+Deleting a book also removes rankings for that book.
+
+---
+
 ## 7. Student APIs
 
 ---
@@ -239,7 +374,8 @@ Response:
 ```json id="s2"
 {
   "studentId": "uuid",
-  "classId": "uuid"
+  "classId": "uuid",
+  "existingMember": false
 }
 ```
 
@@ -301,6 +437,81 @@ Response:
 
 ---
 
+### 7.4 Get Student Books
+
+```
+GET /api/students/{studentId}/books
+```
+
+Response:
+
+```json id="s6"
+{
+  "books": [
+    {
+      "id": "uuid",
+      "title": "Book Title",
+      "capacity": 10
+    }
+  ]
+}
+```
+
+---
+
+### 7.5 Update Student
+
+```
+PATCH /api/classes/{classId}/students/{studentId}
+```
+
+Headers:
+
+```
+Authorization: Bearer <token>
+```
+
+Request:
+
+```json id="s7"
+{
+  "username": "student456"
+}
+```
+
+Response:
+
+```json id="s8"
+{
+  "id": "uuid",
+  "username": "student456"
+}
+```
+
+---
+
+### 7.6 Delete Student
+
+```
+DELETE /api/classes/{classId}/students/{studentId}
+```
+
+Headers:
+
+```
+Authorization: Bearer <token>
+```
+
+Response:
+
+```text id="s9"
+204 No Content
+```
+
+Deleting a student also removes that student's rankings.
+
+---
+
 ## 8. Assignment APIs
 
 ---
@@ -313,6 +524,15 @@ POST /api/classes/{classId}/assign
 
 Description:
 Runs the MCMF algorithm.
+
+Headers:
+
+```
+Authorization: Bearer <token>
+```
+
+Swagger UI:
+Use the **Authorize** button with the JWT returned by teacher login before trying this endpoint.
 
 Response:
 
@@ -336,6 +556,15 @@ Response:
 ```
 GET /api/classes/{classId}/assignments/latest
 ```
+
+Headers:
+
+```
+Authorization: Bearer <token>
+```
+
+Swagger UI:
+Use the **Authorize** button with the JWT returned by teacher login before trying this endpoint. The login response alone does not automatically authenticate this request.
 
 Response:
 
@@ -365,6 +594,15 @@ Response:
 GET /api/classes/{classId}/assignments
 ```
 
+Headers:
+
+```
+Authorization: Bearer <token>
+```
+
+Swagger UI:
+Use the **Authorize** button with the JWT returned by teacher login before trying this endpoint.
+
 Response:
 
 ```json id="a3"
@@ -384,6 +622,103 @@ Response:
   ]
 }
 ```
+
+---
+
+### 8.4 Get Public Class Assignment Grid
+
+```
+GET /api/public/classes/{joinCode}/assignment-grid
+```
+
+Description:
+Returns a public class-specific assignment grid for the class associated with the supplied join code. The grid uses that class's latest completed assignment run.
+
+Authentication:
+Not required.
+
+Response:
+
+```json id="a4"
+{
+  "classId": "uuid",
+  "className": "English 12",
+  "joinCode": "K9X42M",
+  "assignmentRunId": "uuid",
+  "rows": [
+    {
+      "bookTitle": "The Hobbit",
+      "students": ["Sam", "Mia"]
+    }
+  ]
+}
+```
+
+Rules:
+
+* Only the class identified by `joinCode` is included
+* All books for that class are included
+* Student names come from the latest completed assignment run
+* Books with no assigned students are returned with an empty `students` array
+
+---
+
+### 8.5 Get Teacher Assignment Spreadsheet Grid
+
+```
+GET /api/teachers/me/assignment-grid
+```
+
+Authentication:
+Teacher bearer token required.
+
+Headers:
+
+```
+Authorization: Bearer <token>
+```
+
+Swagger UI:
+Use the **Authorize** button with the JWT returned by teacher login before trying this endpoint.
+
+Description:
+Returns spreadsheet-shaped JSON for all classes owned by the currently authenticated teacher. The grid uses the latest completed assignment run for each class.
+
+Response:
+
+```json id="a5"
+{
+  "columns": [
+    {
+      "classId": "uuid",
+      "className": "English 12"
+    }
+  ],
+  "rows": [
+    {
+      "bookTitle": "The Hobbit",
+      "cells": {
+        "class-uuid": "Sam"
+      }
+    },
+    {
+      "bookTitle": "",
+      "cells": {
+        "class-uuid": "Mia"
+      }
+    }
+  ]
+}
+```
+
+Rules:
+
+* Columns represent all classes owned by the authenticated teacher
+* Rows represent all book titles used by the teacher's classes
+* The same book title is grouped into one row group across classes
+* Each student appears on a separate row within the book group
+* `bookTitle` is populated only on the first row for a book group
+* Empty intersections are returned as empty strings
 
 ---
 

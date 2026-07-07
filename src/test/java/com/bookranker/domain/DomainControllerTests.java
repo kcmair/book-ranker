@@ -1,9 +1,13 @@
 package com.bookranker.domain;
 
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.blankOrNullString;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -40,6 +44,27 @@ class DomainControllerTests {
                 }
                 """))
         .andExpect(status().isForbidden());
+
+    mockMvc.perform(get("/api/classes"))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void teacherCanListOnlyOwnedClassPeriods() throws Exception {
+    String teacherToken = registerAndLoginTeacher();
+    String otherTeacherToken = registerAndLoginTeacher();
+
+    createClassPeriod(teacherToken, "English 12");
+    createClassPeriod(teacherToken, "Creative Writing");
+    createClassPeriod(otherTeacherToken, "Other Teacher Class");
+
+    mockMvc.perform(get("/api/classes")
+            .header(HttpHeaders.AUTHORIZATION, bearer(teacherToken)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.classes.length()", equalTo(2)))
+        .andExpect(jsonPath("$.classes[*].id", everyItem(not(blankOrNullString()))))
+        .andExpect(jsonPath("$.classes[*].name", containsInAnyOrder("English 12", "Creative Writing")))
+        .andExpect(jsonPath("$.classes[*].joinCode", everyItem(not(blankOrNullString()))));
   }
 
   @Test
@@ -121,6 +146,134 @@ class DomainControllerTests {
   }
 
   @Test
+  void teacherCanEditAndRemoveClassPeriodsBooksAndStudents() throws Exception {
+    String token = registerAndLoginTeacher();
+    String otherTeacherToken = registerAndLoginTeacher();
+    MvcResult classResult = createClassPeriod(token, "Original Class");
+    JsonNode classJson = objectMapper.readTree(classResult.getResponse().getContentAsString());
+    String classId = classJson.get("classId").asText();
+    String joinCode = classJson.get("joinCode").asText();
+
+    mockMvc.perform(patch("/api/classes/{classId}", classId)
+            .header(HttpHeaders.AUTHORIZATION, bearer(token))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "name": "Updated Class"
+                }
+                """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id", equalTo(classId)))
+        .andExpect(jsonPath("$.name", equalTo("Updated Class")))
+        .andExpect(jsonPath("$.joinCode", equalTo(joinCode)));
+
+    mockMvc.perform(patch("/api/classes/{classId}", classId)
+            .header(HttpHeaders.AUTHORIZATION, bearer(otherTeacherToken))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "name": "Wrong Teacher Update"
+                }
+                """))
+        .andExpect(status().isForbidden());
+
+    String bookOneId = addBook(token, classId, "Book One", 2);
+    String bookTwoId = addBook(token, classId, "Book Two", 1);
+
+    mockMvc.perform(patch("/api/classes/{classId}/books/{bookId}", classId, bookOneId)
+            .header(HttpHeaders.AUTHORIZATION, bearer(token))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "title": "Updated Book One",
+                  "capacity": 3
+                }
+                """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id", equalTo(bookOneId)))
+        .andExpect(jsonPath("$.title", equalTo("Updated Book One")))
+        .andExpect(jsonPath("$.capacity", equalTo(3)));
+
+    mockMvc.perform(patch("/api/classes/{classId}/books/{bookId}", classId, bookOneId)
+            .header(HttpHeaders.AUTHORIZATION, bearer(token))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "title": "Invalid Book",
+                  "capacity": 0
+                }
+                """))
+        .andExpect(status().isBadRequest());
+
+    String studentOneId = joinClass(joinCode, "student-one", classId);
+    String studentTwoId = joinClass(joinCode, "student-two", classId);
+
+    mockMvc.perform(post("/api/students/{studentId}/rankings", studentOneId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "rankings": [
+                    { "bookId": "%s", "rank": 1 },
+                    { "bookId": "%s", "rank": 2 }
+                  ]
+                }
+                """.formatted(bookOneId, bookTwoId)))
+        .andExpect(status().isOk());
+
+    mockMvc.perform(patch("/api/classes/{classId}/students/{studentId}", classId, studentOneId)
+            .header(HttpHeaders.AUTHORIZATION, bearer(token))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "username": "student-renamed"
+                }
+                """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id", equalTo(studentOneId)))
+        .andExpect(jsonPath("$.username", equalTo("student-renamed")));
+
+    mockMvc.perform(patch("/api/classes/{classId}/students/{studentId}", classId, studentOneId)
+            .header(HttpHeaders.AUTHORIZATION, bearer(token))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "username": "student-two"
+                }
+                """))
+        .andExpect(status().isConflict());
+
+    mockMvc.perform(delete("/api/classes/{classId}/books/{bookId}", classId, bookTwoId)
+            .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+        .andExpect(status().isNoContent());
+
+    mockMvc.perform(get("/api/classes/{classId}/books", classId)
+            .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.books.length()", equalTo(1)))
+        .andExpect(jsonPath("$.books[0].id", equalTo(bookOneId)));
+
+    mockMvc.perform(get("/api/students/{studentId}/status", studentOneId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.rankCount", equalTo(1)))
+        .andExpect(jsonPath("$.totalBooks", equalTo(1)));
+
+    mockMvc.perform(delete("/api/classes/{classId}/students/{studentId}", classId, studentTwoId)
+            .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+        .andExpect(status().isNoContent());
+
+    mockMvc.perform(get("/api/students/{studentId}/status", studentTwoId))
+        .andExpect(status().isNotFound());
+
+    mockMvc.perform(delete("/api/classes/{classId}", classId)
+            .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+        .andExpect(status().isNoContent());
+
+    mockMvc.perform(get("/api/classes/{classId}", classId)
+            .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+        .andExpect(status().isNotFound());
+  }
+
+  @Test
   void rankingsMustIncludeAllClassBooks() throws Exception {
     String token = registerAndLoginTeacher();
     MvcResult classResult = mockMvc.perform(post("/api/classes")
@@ -193,6 +346,40 @@ class DomainControllerTests {
 
     return objectMapper.readTree(loginResult.getResponse().getContentAsString())
         .get("token")
+        .asText();
+  }
+
+  private MvcResult createClassPeriod(String token, String name) throws Exception {
+    return mockMvc.perform(post("/api/classes")
+            .header(HttpHeaders.AUTHORIZATION, bearer(token))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "name": "%s"
+                }
+                """.formatted(name)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.classId", not(blankOrNullString())))
+        .andExpect(jsonPath("$.joinCode", not(blankOrNullString())))
+        .andReturn();
+  }
+
+  private String joinClass(String joinCode, String username, String classId) throws Exception {
+    MvcResult joinResult = mockMvc.perform(post("/api/classes/join")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "joinCode": "%s",
+                  "username": "%s"
+                }
+                """.formatted(joinCode, username)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.studentId", not(blankOrNullString())))
+        .andExpect(jsonPath("$.classId", equalTo(classId)))
+        .andReturn();
+
+    return objectMapper.readTree(joinResult.getResponse().getContentAsString())
+        .get("studentId")
         .asText();
   }
 
