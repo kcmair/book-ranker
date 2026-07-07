@@ -1,8 +1,10 @@
 package com.bookranker.assignment.service;
 
-import com.bookranker.assignment.dto.PublicAssignmentGridColumnResponse;
-import com.bookranker.assignment.dto.PublicAssignmentGridResponse;
-import com.bookranker.assignment.dto.PublicAssignmentGridRowResponse;
+import com.bookranker.assignment.dto.PublicClassAssignmentGridResponse;
+import com.bookranker.assignment.dto.PublicClassAssignmentRowResponse;
+import com.bookranker.assignment.dto.TeacherAssignmentGridColumnResponse;
+import com.bookranker.assignment.dto.TeacherAssignmentGridResponse;
+import com.bookranker.assignment.dto.TeacherAssignmentGridRowResponse;
 import com.bookranker.assignment.model.Assignment;
 import com.bookranker.assignment.model.AssignmentRun;
 import com.bookranker.assignment.model.AssignmentRunStatus;
@@ -44,22 +46,37 @@ public class PublicAssignmentGridService {
   }
 
   @Transactional(readOnly = true)
-  public PublicAssignmentGridResponse getPublicGrid(String joinCode) {
-    ClassPeriod sourceClassPeriod = classPeriodService.findByJoinCode(joinCode);
-    String teacherId = sourceClassPeriod.getTeacher().getId();
-    List<ClassPeriod> classPeriods = classPeriodRepository.findByTeacherIdOrderByCreatedAtAsc(teacherId);
+  public PublicClassAssignmentGridResponse getPublicClassGrid(String joinCode) {
+    ClassPeriod classPeriod = classPeriodService.findByJoinCode(joinCode);
+    Optional<AssignmentRun> latestRun = assignmentRunRepository
+        .findFirstByClassPeriodIdAndStatusOrderByCreatedAtDesc(
+            classPeriod.getId(),
+            AssignmentRunStatus.COMPLETE
+        );
+
+    return new PublicClassAssignmentGridResponse(
+        classPeriod.getId(),
+        classPeriod.getName(),
+        classPeriod.getJoinCode(),
+        latestRun.map(AssignmentRun::getId).orElse(null),
+        buildPublicClassRows(classPeriod, latestRun)
+    );
+  }
+
+  @Transactional(readOnly = true)
+  public TeacherAssignmentGridResponse getTeacherGrid(String teacherEmail) {
+    List<ClassPeriod> classPeriods = classPeriodRepository.findByTeacher_EmailOrderByCreatedAtDesc(teacherEmail)
+        .reversed();
 
     Map<String, AssignmentRun> latestRunsByClassId = latestCompletedRunsByClassId(classPeriods);
     Map<String, Map<String, List<String>>> studentsByBookAndClass = emptyGridForTeacherBooks(classPeriods);
     addAssignedStudents(studentsByBookAndClass, latestRunsByClassId);
 
-    return new PublicAssignmentGridResponse(
-        sourceClassPeriod.getJoinCode(),
-        teacherId,
+    return new TeacherAssignmentGridResponse(
         classPeriods.stream()
-            .map(classPeriod -> new PublicAssignmentGridColumnResponse(classPeriod.getId(), classPeriod.getName()))
+            .map(classPeriod -> new TeacherAssignmentGridColumnResponse(classPeriod.getId(), classPeriod.getName()))
             .toList(),
-        buildRows(classPeriods, studentsByBookAndClass)
+        buildTeacherRows(classPeriods, studentsByBookAndClass)
     );
   }
 
@@ -121,11 +138,35 @@ public class PublicAssignmentGridService {
         });
   }
 
-  private List<PublicAssignmentGridRowResponse> buildRows(
+  private List<PublicClassAssignmentRowResponse> buildPublicClassRows(
+      ClassPeriod classPeriod,
+      Optional<AssignmentRun> latestRun
+  ) {
+    Map<String, List<String>> studentsByBookTitle = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+    classPeriod.getBooks().stream()
+        .sorted(Comparator.comparing(book -> normalizedBookTitle(book.getTitle())))
+        .forEach(book -> studentsByBookTitle.putIfAbsent(book.getTitle(), new ArrayList<>()));
+
+    latestRun.ifPresent(assignmentRun -> assignmentRepository.findByAssignmentRunId(assignmentRun.getId()).stream()
+        .sorted(Comparator
+            .comparing((Assignment assignment) -> normalizedBookTitle(assignment.getBook().getTitle()))
+            .thenComparing(assignment -> assignment.getBook().getTitle())
+            .thenComparing(assignment -> assignment.getStudent().getUsername(), String.CASE_INSENSITIVE_ORDER)
+        )
+        .forEach(assignment -> studentsByBookTitle
+            .computeIfAbsent(assignment.getBook().getTitle(), ignored -> new ArrayList<>())
+            .add(assignment.getStudent().getUsername())));
+
+    return studentsByBookTitle.entrySet().stream()
+        .map(entry -> new PublicClassAssignmentRowResponse(entry.getKey(), List.copyOf(entry.getValue())))
+        .toList();
+  }
+
+  private List<TeacherAssignmentGridRowResponse> buildTeacherRows(
       List<ClassPeriod> classPeriods,
       Map<String, Map<String, List<String>>> studentsByBookAndClass
   ) {
-    List<PublicAssignmentGridRowResponse> rows = new ArrayList<>();
+    List<TeacherAssignmentGridRowResponse> rows = new ArrayList<>();
     for (Map.Entry<String, Map<String, List<String>>> bookEntry : studentsByBookAndClass.entrySet()) {
       int rowCount = classPeriods.stream()
           .map(classPeriod -> bookEntry.getValue().get(classPeriod.getId()))
@@ -140,7 +181,7 @@ public class PublicAssignmentGridService {
           List<String> students = bookEntry.getValue().getOrDefault(classPeriod.getId(), List.of());
           cells.put(classPeriod.getId(), rowIndex < students.size() ? students.get(rowIndex) : "");
         }
-        rows.add(new PublicAssignmentGridRowResponse(rowIndex == 0 ? bookEntry.getKey() : "", cells));
+        rows.add(new TeacherAssignmentGridRowResponse(rowIndex == 0 ? bookEntry.getKey() : "", cells));
       }
     }
     return rows;

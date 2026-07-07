@@ -525,6 +525,15 @@ POST /api/classes/{classId}/assign
 Description:
 Runs the MCMF algorithm.
 
+Headers:
+
+```
+Authorization: Bearer <token>
+```
+
+Swagger UI:
+Use the **Authorize** button with the JWT returned by teacher login before trying this endpoint.
+
 Response:
 
 ```json id="a1"
@@ -547,6 +556,15 @@ Response:
 ```
 GET /api/classes/{classId}/assignments/latest
 ```
+
+Headers:
+
+```
+Authorization: Bearer <token>
+```
+
+Swagger UI:
+Use the **Authorize** button with the JWT returned by teacher login before trying this endpoint. The login response alone does not automatically authenticate this request.
 
 Response:
 
@@ -576,6 +594,15 @@ Response:
 GET /api/classes/{classId}/assignments
 ```
 
+Headers:
+
+```
+Authorization: Bearer <token>
+```
+
+Swagger UI:
+Use the **Authorize** button with the JWT returned by teacher login before trying this endpoint.
+
 Response:
 
 ```json id="a3"
@@ -598,14 +625,14 @@ Response:
 
 ---
 
-### 8.4 Get Public Assignment Grid
+### 8.4 Get Public Class Assignment Grid
 
 ```
 GET /api/public/classes/{joinCode}/assignment-grid
 ```
 
 Description:
-Returns a public spreadsheet-shaped assignment grid for the teacher associated with the supplied class join code. The grid uses the latest completed assignment run for each class.
+Returns a public class-specific assignment grid for the class associated with the supplied join code. The grid uses that class's latest completed assignment run.
 
 Authentication:
 Not required.
@@ -614,8 +641,53 @@ Response:
 
 ```json id="a4"
 {
-  "sourceJoinCode": "K9X42M",
-  "teacherId": "uuid",
+  "classId": "uuid",
+  "className": "English 12",
+  "joinCode": "K9X42M",
+  "assignmentRunId": "uuid",
+  "rows": [
+    {
+      "bookTitle": "The Hobbit",
+      "students": ["Sam", "Mia"]
+    }
+  ]
+}
+```
+
+Rules:
+
+* Only the class identified by `joinCode` is included
+* All books for that class are included
+* Student names come from the latest completed assignment run
+* Books with no assigned students are returned with an empty `students` array
+
+---
+
+### 8.5 Get Teacher Assignment Spreadsheet Grid
+
+```
+GET /api/teachers/me/assignment-grid
+```
+
+Authentication:
+Teacher bearer token required.
+
+Headers:
+
+```
+Authorization: Bearer <token>
+```
+
+Swagger UI:
+Use the **Authorize** button with the JWT returned by teacher login before trying this endpoint.
+
+Description:
+Returns spreadsheet-shaped JSON for all classes owned by the currently authenticated teacher. The grid uses the latest completed assignment run for each class.
+
+Response:
+
+```json id="a5"
+{
   "columns": [
     {
       "classId": "uuid",
@@ -641,8 +713,8 @@ Response:
 
 Rules:
 
-* Columns represent all classes owned by the teacher associated with `joinCode`
-* Rows represent all book titles used by that teacher's classes
+* Columns represent all classes owned by the authenticated teacher
+* Rows represent all book titles used by the teacher's classes
 * The same book title is grouped into one row group across classes
 * Each student appears on a separate row within the book group
 * `bookTitle` is populated only on the first row for a book group

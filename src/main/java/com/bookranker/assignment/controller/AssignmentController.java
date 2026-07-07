@@ -33,7 +33,9 @@ public class AssignmentController {
   @Operation(
       summary = "Run book assignment",
       description = "Builds the class assignment state, runs the MCMF solver, persists a historical assignment run, "
-          + "and returns run status and satisfaction metrics."
+          + "and returns run status and satisfaction metrics. Requires the Swagger Authorize bearer token or an "
+          + "Authorization: Bearer <token> header.",
+      security = @SecurityRequirement(name = "bearerAuth")
   )
   @ApiResponses(value = {
       @ApiResponse(responseCode = "200", description = "Assignment run completed successfully"),
@@ -53,7 +55,9 @@ public class AssignmentController {
   @Operation(
       summary = "Get latest assignment results",
       description = "Returns the most recent assignment run for the class period, including persisted assignments "
-          + "and satisfaction metrics."
+          + "and satisfaction metrics. Requires the Swagger Authorize bearer token or an Authorization: Bearer "
+          + "<token> header.",
+      security = @SecurityRequirement(name = "bearerAuth")
   )
   @ApiResponses(value = {
       @ApiResponse(responseCode = "200", description = "Latest assignment results returned successfully"),
@@ -72,7 +76,9 @@ public class AssignmentController {
   @GetMapping("/assignments")
   @Operation(
       summary = "Get assignment run history",
-      description = "Returns historical assignment runs for the class period in newest-first order."
+      description = "Returns historical assignment runs for the class period in newest-first order. Requires the "
+          + "Swagger Authorize bearer token or an Authorization: Bearer <token> header.",
+      security = @SecurityRequirement(name = "bearerAuth")
   )
   @ApiResponses(value = {
       @ApiResponse(responseCode = "200", description = "Assignment history returned successfully"),

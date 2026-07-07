@@ -82,7 +82,7 @@ class AssignmentControllerTests {
   }
 
   @Test
-  void publicAssignmentGridUsesLatestRunsAcrossTeacherClasses() throws Exception {
+  void assignmentGridsSupportPublicClassViewAndAuthenticatedTeacherSpreadsheet() throws Exception {
     String token = registerAndLoginTeacher();
     ClassFixture firstClass = createClassPeriod(token, "First Assignment Class");
     String firstSharedBookId = addBook(token, firstClass.classId(), "Shared Book", 2);
@@ -103,7 +103,23 @@ class AssignmentControllerTests {
 
     mockMvc.perform(get("/api/public/classes/{joinCode}/assignment-grid", firstClass.joinCode()))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.sourceJoinCode", equalTo(firstClass.joinCode())))
+        .andExpect(jsonPath("$.classId", equalTo(firstClass.classId())))
+        .andExpect(jsonPath("$.className", equalTo("First Assignment Class")))
+        .andExpect(jsonPath("$.joinCode", equalTo(firstClass.joinCode())))
+        .andExpect(jsonPath("$.assignmentRunId", not(blankOrNullString())))
+        .andExpect(jsonPath("$.rows.length()", equalTo(2)))
+        .andExpect(jsonPath("$.rows[0].bookTitle", equalTo("Shared Book")))
+        .andExpect(jsonPath("$.rows[0].students[0]", equalTo("alpha-student")))
+        .andExpect(jsonPath("$.rows[0].students[1]", equalTo("beta-student")))
+        .andExpect(jsonPath("$.rows[1].bookTitle", equalTo("Unused Book")))
+        .andExpect(jsonPath("$.rows[1].students.length()", equalTo(0)));
+
+    mockMvc.perform(get("/api/teachers/me/assignment-grid"))
+        .andExpect(status().isForbidden());
+
+    mockMvc.perform(get("/api/teachers/me/assignment-grid")
+            .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+        .andExpect(status().isOk())
         .andExpect(jsonPath("$.columns.length()", equalTo(2)))
         .andExpect(jsonPath("$.columns[0].classId", equalTo(firstClass.classId())))
         .andExpect(jsonPath("$.columns[1].classId", equalTo(secondClass.classId())))

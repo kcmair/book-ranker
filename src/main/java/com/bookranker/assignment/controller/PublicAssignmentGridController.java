@@ -1,6 +1,6 @@
 package com.bookranker.assignment.controller;
 
-import com.bookranker.assignment.dto.PublicAssignmentGridResponse;
+import com.bookranker.assignment.dto.PublicClassAssignmentGridResponse;
 import com.bookranker.assignment.service.PublicAssignmentGridService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -25,18 +25,18 @@ public class PublicAssignmentGridController {
 
   @GetMapping
   @Operation(
-      summary = "Get public assignment grid",
-      description = "Returns a spreadsheet-shaped view of the latest completed assignment run for each class "
-          + "owned by the teacher associated with the supplied join code."
+      summary = "Get public class assignment grid",
+      description = "Returns a public class-specific view of the latest completed assignment run for the class "
+          + "identified by the supplied join code. This endpoint is public and does not use bearer authentication."
   )
   @ApiResponses(value = {
-      @ApiResponse(responseCode = "200", description = "Public assignment grid returned successfully"),
+      @ApiResponse(responseCode = "200", description = "Public class assignment grid returned successfully"),
       @ApiResponse(responseCode = "404", description = "Join code not found")
   })
-  public PublicAssignmentGridResponse getPublicAssignmentGrid(
-      @Parameter(description = "Class join code used to locate the teacher's public assignment grid", required = true)
+  public PublicClassAssignmentGridResponse getPublicAssignmentGrid(
+      @Parameter(description = "Class join code used to locate the public class assignment grid", required = true)
       @PathVariable String joinCode
   ) {
-    return publicAssignmentGridService.getPublicGrid(joinCode);
+    return publicAssignmentGridService.getPublicClassGrid(joinCode);
   }
 }
