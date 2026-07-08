@@ -335,7 +335,8 @@ const mockClient: typeof liveClient = {
     submitted: true,
     rankCount: mockClass.books.length,
     totalBooks: mockClass.books.length,
-    minimumRankingCount: mockClass.minimumRankingCount
+    minimumRankingCount: mockClass.minimumRankingCount,
+    rankings: mockClass.books.map((book, index) => ({ bookId: book.id, rank: index + 1 }))
   }),
   runAssignment: async () => ({
     assignmentRunId: mockRun.runId,

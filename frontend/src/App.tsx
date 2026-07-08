@@ -803,7 +803,12 @@ function StudentPoll() {
       setStatus(nextStatus);
       setBooks(bookResponse.books);
       setMinimumRankingCount(bookResponse.minimumRankingCount ?? bookResponse.books.length);
-      setRankedBookIds([]);
+      setRankedBookIds(
+        [...(nextStatus.rankings ?? [])]
+          .sort((left, right) => left.rank - right.rank)
+          .map((ranking) => ranking.bookId)
+          .filter((bookId) => bookResponse.books.some((book) => book.id === bookId))
+      );
       setExistingMember(response.existingMember);
     });
   }

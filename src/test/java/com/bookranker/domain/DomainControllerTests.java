@@ -139,7 +139,8 @@ class DomainControllerTests {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.submitted", equalTo(false)))
         .andExpect(jsonPath("$.rankCount", equalTo(0)))
-        .andExpect(jsonPath("$.totalBooks", equalTo(2)));
+        .andExpect(jsonPath("$.totalBooks", equalTo(2)))
+        .andExpect(jsonPath("$.rankings.length()", equalTo(0)));
 
     mockMvc
         .perform(
@@ -163,7 +164,11 @@ class DomainControllerTests {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.submitted", equalTo(true)))
         .andExpect(jsonPath("$.rankCount", equalTo(2)))
-        .andExpect(jsonPath("$.totalBooks", equalTo(2)));
+        .andExpect(jsonPath("$.totalBooks", equalTo(2)))
+        .andExpect(jsonPath("$.rankings[0].bookId", equalTo(bookOneId)))
+        .andExpect(jsonPath("$.rankings[0].rank", equalTo(1)))
+        .andExpect(jsonPath("$.rankings[1].bookId", equalTo(bookTwoId)))
+        .andExpect(jsonPath("$.rankings[1].rank", equalTo(2)));
   }
 
   @Test
@@ -430,7 +435,9 @@ class DomainControllerTests {
         .andExpect(jsonPath("$.submitted", equalTo(true)))
         .andExpect(jsonPath("$.rankCount", equalTo(1)))
         .andExpect(jsonPath("$.totalBooks", equalTo(2)))
-        .andExpect(jsonPath("$.minimumRankingCount", equalTo(1)));
+        .andExpect(jsonPath("$.minimumRankingCount", equalTo(1)))
+        .andExpect(jsonPath("$.rankings[0].bookId", equalTo(bookOneId)))
+        .andExpect(jsonPath("$.rankings[0].rank", equalTo(1)));
 
     mockMvc
         .perform(

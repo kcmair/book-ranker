@@ -79,6 +79,7 @@ export type StudentStatus = {
   rankCount: number;
   totalBooks: number;
   minimumRankingCount: number;
+  rankings?: RankingItem[];
 };
 
 export type RankingItem = {
