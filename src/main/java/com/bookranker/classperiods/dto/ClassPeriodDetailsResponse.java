@@ -13,6 +13,10 @@ public record ClassPeriodDetailsResponse(
     String name,
     @Schema(description = "Student join code for the class period", example = "K9X42M")
     String joinCode,
+    @Schema(description = "Minimum number of book rankings each student must submit", example = "5")
+    int minimumRankingCount,
+    @Schema(description = "Whether the minimum ranking count was explicitly set by the teacher", example = "false")
+    boolean minimumRankingCountExplicit,
     @Schema(description = "Books available in the class period")
     List<BookResponse> books,
     @Schema(description = "Students who have joined the class period")

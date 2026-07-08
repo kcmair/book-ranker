@@ -36,7 +36,7 @@ public class BookAssignmentSolver {
 
       for (int bookIndex = 0; bookIndex < books.size(); bookIndex++) {
         ClassState.Book book = books.get(bookIndex);
-        int rank = studentRankings.get(book);
+        int rank = studentRankings.getOrDefault(book, books.size() + 1);
         int cost = RankingCost.fromRank(rank);
         MinCostFlowGraph.Edge edge = graph.addEdge(
             studentOffset + studentIndex,
@@ -81,7 +81,7 @@ public class BookAssignmentSolver {
     List<ClassState.Student> eligible = new ArrayList<>();
     for (ClassState.Student student : classState.students()) {
       Map<ClassState.Book, Integer> studentRankings = classState.rankings().get(student);
-      if (studentRankings == null || !studentRankings.keySet().containsAll(classState.books())) {
+      if (studentRankings == null || studentRankings.size() < classState.minimumRankingCount()) {
         continue;
       }
       eligible.add(student);
@@ -94,8 +94,8 @@ public class BookAssignmentSolver {
       return assignmentCount == 0 ? 0.0 : 1.0;
     }
 
-    int maxPossibleCost = assignmentCount * (bookCount - 1);
-    return 1.0 - ((double) totalCost / maxPossibleCost);
+    int maxPossibleCost = assignmentCount * bookCount;
+    return Math.max(0.0, 1.0 - ((double) totalCost / maxPossibleCost));
   }
 
   private AssignmentResult.SatisfactionDistribution satisfactionDistribution(

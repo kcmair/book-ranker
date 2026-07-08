@@ -60,14 +60,25 @@ public class StudentService {
     Student student = findStudent(studentId);
     long totalBooks = bookRepository.countByClassPeriodId(student.getClassPeriod().getId());
     long rankCount = rankingRepository.countByStudentId(studentId);
+    int minimumRankingCount = classPeriodService.effectiveMinimumRankingCount(
+        student.getClassPeriod(),
+        Math.toIntExact(totalBooks)
+    );
 
-    return new StudentStatusResponse(totalBooks > 0 && rankCount == totalBooks, rankCount, totalBooks);
+    return new StudentStatusResponse(
+        totalBooks > 0 && rankCount >= minimumRankingCount,
+        rankCount,
+        totalBooks,
+        minimumRankingCount
+    );
   }
 
   @Transactional(readOnly = true)
   public BooksResponse getBooks(String studentId) {
     Student student = findStudent(studentId);
     return new BooksResponse(
+        student.getClassPeriod().getName(),
+        classPeriodService.effectiveMinimumRankingCount(student.getClassPeriod()),
         bookRepository.findByClassPeriodId(student.getClassPeriod().getId()).stream()
             .map(book -> new BookResponse(book.getId(), book.getTitle(), book.getCapacity()))
             .toList()

@@ -435,6 +435,7 @@ type BooksViewProps = {
 function BooksView(props: BooksViewProps) {
   const [bookTitle, setBookTitle] = useState("");
   const [capacity, setCapacity] = useState(1);
+  const [minimumRankingCount, setMinimumRankingCount] = useState(0);
   const [notice, setNotice] = useState<Notice>(null);
   const [loading, setLoading] = useState("");
   const [copiedStudentUrl, setCopiedStudentUrl] = useState(false);
@@ -443,6 +444,11 @@ function BooksView(props: BooksViewProps) {
   const totalCapacity = (props.classPeriod?.books ?? []).reduce((sum, book) => sum + book.capacity, 0);
   const studentCount = props.classPeriod?.students.length ?? 0;
   const hasTooManyStudents = studentCount > totalCapacity;
+  const bookCount = props.classPeriod?.books.length ?? 0;
+
+  useEffect(() => {
+    setMinimumRankingCount(props.classPeriod?.minimumRankingCount ?? bookCount);
+  }, [bookCount, props.classPeriod?.minimumRankingCount]);
 
   async function addBook() {
     return withNotice(setLoading, setNotice, "book", async () => {
@@ -460,6 +466,29 @@ function BooksView(props: BooksViewProps) {
       const details = await api.getClassPeriod(props.token, props.classId);
       props.onClassPeriod(details);
       setNotice({ kind: "success", message: "Books loaded." });
+    });
+  }
+
+  async function updateMinimumRankingCount() {
+    if (!props.classPeriod) {
+      return;
+    }
+    if (bookCount === 0) {
+      setNotice({ kind: "error", message: "Add at least one book before setting minimum votes." });
+      return;
+    }
+
+    return withNotice(setLoading, setNotice, "minimum-ranking-count", async () => {
+      const boundedMinimum = Math.min(bookCount, Math.max(1, minimumRankingCount));
+      await api.updateClassPeriod(
+        props.token,
+        props.classId,
+        props.classPeriod?.name ?? "",
+        boundedMinimum
+      );
+      const details = await api.getClassPeriod(props.token, props.classId);
+      props.onClassPeriod(details);
+      setNotice({ kind: "success", message: "Minimum votes updated." });
     });
   }
 
@@ -583,11 +612,37 @@ function BooksView(props: BooksViewProps) {
         </div>
       </Panel>
 
-      <Panel title="Assignment" icon={<BarChart3 size={18} />}>
-        <div className="metric-grid">
-          <Metric label="Books" value={props.classPeriod?.books.length ?? 0} />
+      <Panel title="Assignment" icon={<BarChart3 size={18} />} wide>
+        <div className="metric-grid four">
+          <Metric label="Books" value={bookCount} />
           <Metric label="Capacity" value={totalCapacity} />
           <Metric label="Students" value={studentCount} valueTone={hasTooManyStudents ? "danger" : undefined} />
+          <label className="metric metric-input">
+            <span>Min rankings per student</span>
+            <div className="metric-input-row">
+              <input
+                value={minimumRankingCount}
+                min={bookCount > 0 ? 1 : 0}
+                max={bookCount}
+                onChange={(event) => {
+                  const nextMinimum = Number(event.target.value);
+                  setMinimumRankingCount(Math.min(bookCount, Math.max(1, nextMinimum)));
+                }}
+                type="number"
+                disabled={bookCount === 0}
+              />
+              <button
+                className="metric-save-button"
+                disabled={loading === "minimum-ranking-count" || bookCount === 0}
+                onClick={updateMinimumRankingCount}
+                title="Save required rankings"
+                type="button"
+              >
+                {loading === "minimum-ranking-count" ? <Loader2 className="spin" size={15} /> : <Check size={15} />}
+                Save
+              </button>
+            </div>
+          </label>
         </div>
         <ActionButton icon={<Check size={16} />} label="Run assignment" busy={loading === "assign"} onClick={runAssignment} />
       </Panel>
@@ -654,6 +709,7 @@ function StudentPoll() {
   const [classId, setClassId] = useState("");
   const [classDisplayName, setClassDisplayName] = useState("");
   const [books, setBooks] = useState<Book[]>([]);
+  const [minimumRankingCount, setMinimumRankingCount] = useState(0);
   const [notice, setNotice] = useState<Notice>(null);
   const [loading, setLoading] = useState("");
   const [status, setStatus] = useState<StudentStatus | null>(null);
@@ -703,6 +759,7 @@ function StudentPoll() {
       setClassDisplayName(response.className ?? bookResponse.className ?? (joinCode || response.classId));
       setStatus(nextStatus);
       setBooks(bookResponse.books);
+      setMinimumRankingCount(bookResponse.minimumRankingCount ?? bookResponse.books.length);
       setRankings({});
       setExistingMember(response.existingMember);
       setNotice({
@@ -717,6 +774,10 @@ function StudentPoll() {
       const payload: RankingItem[] = Object.entries(rankings)
         .filter(([, rank]) => rank > 0)
         .map(([bookId, rank]) => ({ bookId, rank }));
+      if (payload.length < minimumRankingCount) {
+        setNotice({ kind: "error", message: `Rank at least ${minimumRankingCount} books before submitting.` });
+        return;
+      }
       await api.submitRankings(studentId, payload);
       const nextStatus = await api.getStudentStatus(studentId);
       setStatus(nextStatus);
@@ -782,6 +843,10 @@ function StudentPoll() {
                 the old rankings.
               </div>
             )}
+            <div className="metric-grid two">
+              <Metric label="Required" value={minimumRankingCount} />
+              <Metric label="Books" value={books.length} />
+            </div>
             <div className="ranking-list">
               {books.map((book) => (
                 <label className="ranking-row" key={book.id}>
@@ -792,6 +857,7 @@ function StudentPoll() {
                   <input
                     type="number"
                     min={1}
+                    max={books.length}
                     value={rankings[book.id] ?? ""}
                     onChange={(event) => setRankings({ ...rankings, [book.id]: Number(event.target.value) })}
                     aria-label={`Rank for ${book.title}`}
@@ -810,9 +876,10 @@ function StudentPoll() {
 
         {assignmentGridChecked && !publicAssignmentGrid && status && (
           <Panel title="Progress" icon={<BarChart3 size={18} />}>
-            <div className="metric-grid two">
+            <div className="metric-grid">
               <Metric label="Submitted" value={status.submitted ? "Yes" : "No"} />
               <Metric label="Ranked" value={`${status.rankCount}/${status.totalBooks}`} />
+              <Metric label="Required" value={status.minimumRankingCount} />
             </div>
           </Panel>
         )}
@@ -1115,7 +1182,7 @@ function EditableBookTable({
       <thead>
         <tr>
           <th>Title</th>
-          <th>Capacity</th>
+          <th>Max students</th>
           <th>Actions</th>
         </tr>
       </thead>

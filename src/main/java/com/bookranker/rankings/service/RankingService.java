@@ -2,6 +2,8 @@ package com.bookranker.rankings.service;
 
 import com.bookranker.books.model.Book;
 import com.bookranker.books.repository.BookRepository;
+import com.bookranker.classperiods.model.ClassPeriod;
+import com.bookranker.classperiods.service.ClassPeriodService;
 import com.bookranker.rankings.dto.RankingItemRequest;
 import com.bookranker.rankings.dto.SubmitRankingsRequest;
 import com.bookranker.rankings.dto.SubmitRankingsResponse;
@@ -26,25 +28,30 @@ public class RankingService {
   private final RankingRepository rankingRepository;
   private final BookRepository bookRepository;
   private final StudentService studentService;
+  private final ClassPeriodService classPeriodService;
 
   public RankingService(
       RankingRepository rankingRepository,
       BookRepository bookRepository,
-      StudentService studentService
+      StudentService studentService,
+      ClassPeriodService classPeriodService
   ) {
     this.rankingRepository = rankingRepository;
     this.bookRepository = bookRepository;
     this.studentService = studentService;
+    this.classPeriodService = classPeriodService;
   }
 
   @Transactional
   public SubmitRankingsResponse submitRankings(String studentId, SubmitRankingsRequest request) {
     Student student = studentService.findStudent(studentId);
-    String classPeriodId = student.getClassPeriod().getId();
+    ClassPeriod classPeriod = student.getClassPeriod();
+    String classPeriodId = classPeriod.getId();
     Map<String, Book> booksById = bookRepository.findByClassPeriodId(classPeriodId).stream()
         .collect(Collectors.toMap(Book::getId, Function.identity()));
+    int minimumRankingCount = classPeriodService.effectiveMinimumRankingCount(classPeriod, booksById.size());
 
-    validateRankings(request, booksById);
+    validateRankings(request, booksById, minimumRankingCount);
 
     rankingRepository.deleteByStudentId(studentId);
     rankingRepository.flush();
@@ -62,9 +69,19 @@ public class RankingService {
     return new SubmitRankingsResponse("submitted");
   }
 
-  private void validateRankings(SubmitRankingsRequest request, Map<String, Book> booksById) {
-    if (request.rankings().size() != booksById.size()) {
-      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Rankings must include all books in the class");
+  private void validateRankings(
+      SubmitRankingsRequest request,
+      Map<String, Book> booksById,
+      int minimumRankingCount
+  ) {
+    if (request.rankings().size() < minimumRankingCount) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST,
+          "Rankings must include at least the required minimum number of books"
+      );
+    }
+    if (request.rankings().size() > booksById.size()) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Rankings cannot exceed number of books in the class");
     }
 
     Set<String> bookIds = new HashSet<>();
@@ -82,9 +99,9 @@ public class RankingService {
       }
     }
 
-    for (int expectedRank = 1; expectedRank <= booksById.size(); expectedRank++) {
+    for (int expectedRank = 1; expectedRank <= request.rankings().size(); expectedRank++) {
       if (!ranks.contains(expectedRank)) {
-        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ranks must be contiguous from 1 to number of books");
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ranks must be contiguous from 1 to submitted ranking count");
       }
     }
   }

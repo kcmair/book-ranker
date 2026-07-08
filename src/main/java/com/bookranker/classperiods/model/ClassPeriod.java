@@ -45,6 +45,9 @@ public class ClassPeriod {
   @Column(nullable = false)
   private boolean active = true;
 
+  @Column
+  private Integer minimumRankingCount;
+
   @Column(nullable = false)
   private Instant createdAt = Instant.now();
 

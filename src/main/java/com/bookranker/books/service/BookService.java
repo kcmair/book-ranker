@@ -50,10 +50,14 @@ public class BookService {
 
   @Transactional(readOnly = true)
   public BooksResponse getBooks(String classPeriodId, String teacherEmail) {
-    classPeriodService.findOwnedClassPeriod(classPeriodId, teacherEmail);
-    return new BooksResponse(bookRepository.findByClassPeriodId(classPeriodId).stream()
-        .map(book -> new BookResponse(book.getId(), book.getTitle(), book.getCapacity()))
-        .toList());
+    ClassPeriod classPeriod = classPeriodService.findOwnedClassPeriod(classPeriodId, teacherEmail);
+    return new BooksResponse(
+        classPeriod.getName(),
+        classPeriodService.effectiveMinimumRankingCount(classPeriod),
+        bookRepository.findByClassPeriodId(classPeriodId).stream()
+            .map(book -> new BookResponse(book.getId(), book.getTitle(), book.getCapacity()))
+            .toList()
+    );
   }
 
   @Transactional

@@ -87,6 +87,8 @@ public class ClassPeriodService {
         classPeriod.getId(),
         classPeriod.getName(),
         classPeriod.getJoinCode(),
+        effectiveMinimumRankingCount(classPeriod),
+        classPeriod.getMinimumRankingCount() != null,
         classPeriod.getBooks().stream()
             .map(book -> new BookResponse(book.getId(), book.getTitle(), book.getCapacity()))
             .toList(),
@@ -104,6 +106,18 @@ public class ClassPeriodService {
   ) {
     ClassPeriod classPeriod = findOwnedClassPeriod(classPeriodId, teacherEmail);
     classPeriod.setName(request.name());
+
+    if (request.minimumRankingCount() != null) {
+      int bookCount = classPeriod.getBooks().size();
+      if (request.minimumRankingCount() > bookCount) {
+        throw new ResponseStatusException(
+            HttpStatus.BAD_REQUEST,
+            "Minimum ranking count cannot exceed number of books in the class"
+        );
+      }
+      classPeriod.setMinimumRankingCount(request.minimumRankingCount());
+    }
+
     return new ClassPeriodSummaryResponse(
         classPeriod.getId(),
         classPeriod.getName(),
@@ -145,6 +159,17 @@ public class ClassPeriodService {
   public ClassPeriod findByJoinCode(String joinCode) {
     return classPeriodRepository.findByJoinCode(normalizeJoinCode(joinCode))
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Class period not found"));
+  }
+
+  public int effectiveMinimumRankingCount(ClassPeriod classPeriod) {
+    return effectiveMinimumRankingCount(classPeriod, classPeriod.getBooks().size());
+  }
+
+  public int effectiveMinimumRankingCount(ClassPeriod classPeriod, int bookCount) {
+    if (classPeriod.getMinimumRankingCount() == null) {
+      return bookCount;
+    }
+    return Math.min(classPeriod.getMinimumRankingCount(), bookCount);
   }
 
   private Teacher findTeacherByEmail(String teacherEmail) {

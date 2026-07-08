@@ -121,6 +121,29 @@ class BookAssignmentSolverTest {
   }
 
   @Test
+  void allowsPartialRankingsWhenTheyMeetConfiguredMinimum() {
+    ClassState.Student partial = student("partial");
+    ClassState.Student incomplete = student("incomplete");
+    ClassState.Book b1 = book("b1");
+    ClassState.Book b2 = book("b2");
+    ClassState.Book b3 = book("b3");
+
+    AssignmentResult result = solver.solve(new ClassState(
+        List.of(partial, incomplete),
+        List.of(b1, b2, b3),
+        ranks(partial, Map.of(b1, 1, b2, 2),
+            incomplete, Map.of(b1, 1)),
+        capacities(Map.of(b1, 0, b2, 0, b3, 2)),
+        2
+    ));
+
+    assertEquals(Map.of(partial, b3), result.assignments());
+    assertTrue(result.unassignedStudents().contains(incomplete));
+    assertEquals(0.0, result.satisfactionScore());
+    assertEquals(1, result.satisfactionDistribution().worseThanThirdCount());
+  }
+
+  @Test
   void returnsDeterministicAssignmentsForEqualOptimalSolutions() {
     ClassState.Student s1 = student("s1");
     ClassState.Student s2 = student("s2");

@@ -418,6 +418,10 @@ input:focus {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.metric-grid.four {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .metric-grid.five {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
@@ -448,6 +452,42 @@ input:focus {
   overflow-wrap: anywhere;
   color: #17211d;
   font-size: 1.25rem;
+}
+
+.metric-input {
+  gap: 7px;
+  color: #40584e;
+}
+
+.metric-input-row {
+  display: grid;
+  grid-template-columns: 76px minmax(96px, 1fr);
+  gap: 9px;
+  align-items: center;
+}
+
+.metric-input input {
+  min-height: 34px;
+  padding: 5px 8px;
+}
+
+.metric-save-button {
+  display: inline-flex;
+  min-width: 96px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid #a9beb4;
+  color: #234f3d;
+  background: #ffffff;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.metric-save-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .danger-text {
@@ -787,6 +827,7 @@ tr:last-child td {
   .form-grid.two,
   .book-entry,
   .metric-grid,
+  .metric-grid.four,
   .metric-grid.five,
   .metric-grid.six,
   .spreadsheet-meta {

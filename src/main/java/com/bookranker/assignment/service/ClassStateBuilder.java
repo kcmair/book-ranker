@@ -3,6 +3,8 @@ package com.bookranker.assignment.service;
 import com.bookranker.algorithm.ClassState;
 import com.bookranker.books.model.Book;
 import com.bookranker.books.repository.BookRepository;
+import com.bookranker.classperiods.model.ClassPeriod;
+import com.bookranker.classperiods.repository.ClassPeriodRepository;
 import com.bookranker.rankings.model.Ranking;
 import com.bookranker.rankings.repository.RankingRepository;
 import com.bookranker.students.model.Student;
@@ -20,18 +22,23 @@ public class ClassStateBuilder {
   private final StudentRepository studentRepository;
   private final BookRepository bookRepository;
   private final RankingRepository rankingRepository;
+  private final ClassPeriodRepository classPeriodRepository;
 
   public ClassStateBuilder(
       StudentRepository studentRepository,
       BookRepository bookRepository,
-      RankingRepository rankingRepository
+      RankingRepository rankingRepository,
+      ClassPeriodRepository classPeriodRepository
   ) {
     this.studentRepository = studentRepository;
     this.bookRepository = bookRepository;
     this.rankingRepository = rankingRepository;
+    this.classPeriodRepository = classPeriodRepository;
   }
 
   public BuiltClassState build(String classPeriodId) {
+    ClassPeriod classPeriod = classPeriodRepository.findById(classPeriodId)
+        .orElseThrow(() -> new IllegalArgumentException("Class period not found"));
     List<Student> domainStudents = studentRepository.findByClassPeriodId(classPeriodId);
     List<Book> domainBooks = bookRepository.findByClassPeriodId(classPeriodId);
     List<Ranking> domainRankings = rankingRepository.findByStudentClassPeriodId(classPeriodId);
@@ -72,7 +79,8 @@ public class ClassStateBuilder {
         algorithmStudents,
         algorithmBooks,
         rankings,
-        capacities
+        capacities,
+        effectiveMinimumRankingCount(classPeriod, domainBooks.size())
     );
 
     return new BuiltClassState(
@@ -87,5 +95,12 @@ public class ClassStateBuilder {
       Map<String, Student> domainStudentsById,
       Map<String, Book> domainBooksById
   ) {
+  }
+
+  private int effectiveMinimumRankingCount(ClassPeriod classPeriod, int bookCount) {
+    if (classPeriod.getMinimumRankingCount() == null) {
+      return bookCount;
+    }
+    return Math.min(classPeriod.getMinimumRankingCount(), bookCount);
   }
 }

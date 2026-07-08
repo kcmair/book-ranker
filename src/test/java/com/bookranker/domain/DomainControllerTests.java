@@ -274,7 +274,7 @@ class DomainControllerTests {
   }
 
   @Test
-  void rankingsMustIncludeAllClassBooks() throws Exception {
+  void rankingsMustMeetConfiguredMinimumRankingCount() throws Exception {
     String token = registerAndLoginTeacher();
     MvcResult classResult = mockMvc.perform(post("/api/classes")
             .header(HttpHeaders.AUTHORIZATION, bearer(token))
@@ -317,6 +317,52 @@ class DomainControllerTests {
                   ]
                 }
                 """.formatted(bookOneId)))
+        .andExpect(status().isBadRequest());
+
+    mockMvc.perform(patch("/api/classes/{classId}", classId)
+            .header(HttpHeaders.AUTHORIZATION, bearer(token))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "name": "Incomplete Ranking Class",
+                  "minimumRankingCount": 1
+                }
+                """))
+        .andExpect(status().isOk());
+
+    mockMvc.perform(get("/api/classes/{classId}", classId)
+            .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.minimumRankingCount", equalTo(1)))
+        .andExpect(jsonPath("$.minimumRankingCountExplicit", equalTo(true)));
+
+    mockMvc.perform(post("/api/students/{studentId}/rankings", studentId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "rankings": [
+                    { "bookId": "%s", "rank": 1 }
+                  ]
+                }
+                """.formatted(bookOneId)))
+        .andExpect(status().isOk());
+
+    mockMvc.perform(get("/api/students/{studentId}/status", studentId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.submitted", equalTo(true)))
+        .andExpect(jsonPath("$.rankCount", equalTo(1)))
+        .andExpect(jsonPath("$.totalBooks", equalTo(2)))
+        .andExpect(jsonPath("$.minimumRankingCount", equalTo(1)));
+
+    mockMvc.perform(patch("/api/classes/{classId}", classId)
+            .header(HttpHeaders.AUTHORIZATION, bearer(token))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "name": "Incomplete Ranking Class",
+                  "minimumRankingCount": 3
+                }
+                """))
         .andExpect(status().isBadRequest());
   }
 

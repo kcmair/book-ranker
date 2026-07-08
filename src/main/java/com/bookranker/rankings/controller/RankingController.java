@@ -30,7 +30,7 @@ public class RankingController {
   @Operation(summary = "Submit student book rankings")
   @ApiResponses(value = {
       @ApiResponse(responseCode = "200", description = "Rankings submitted successfully"),
-      @ApiResponse(responseCode = "400", description = "Invalid or incomplete ranking request"),
+      @ApiResponse(responseCode = "400", description = "Invalid ranking request or ranking count below class minimum"),
       @ApiResponse(responseCode = "404", description = "Student not found")
   })
   public SubmitRankingsResponse submitRankings(

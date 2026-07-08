@@ -13,6 +13,8 @@ export type ClassPeriod = {
   id: string;
   name: string;
   joinCode: string;
+  minimumRankingCount: number;
+  minimumRankingCountExplicit: boolean;
   books: Book[];
   students: Student[];
 };
@@ -76,6 +78,7 @@ export type StudentStatus = {
   submitted: boolean;
   rankCount: number;
   totalBooks: number;
+  minimumRankingCount: number;
 };
 
 export type RankingItem = {

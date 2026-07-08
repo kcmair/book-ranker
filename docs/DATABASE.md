@@ -70,6 +70,7 @@ CREATE TABLE classes (
     teacher_id UUID NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     join_code VARCHAR(10) UNIQUE NOT NULL,
+    minimum_ranking_count INT NULL,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT NOW()
 );
@@ -142,7 +143,7 @@ CREATE TABLE rankings (
 
 Constraints:
 
-* A student must rank all books in a class
+* A student must rank at least the class's minimum number of books
 * Rank values must be unique per student
 
 Recommended index:
