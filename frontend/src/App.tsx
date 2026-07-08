@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BarChart3,
   BookOpen,
@@ -131,9 +131,9 @@ function App() {
           token={token}
           classId={classId}
           classPeriod={classPeriod}
-          onClassId={persistClassId}
           onClassPeriod={setClassPeriod}
           onAssignment={setLatestAssignment}
+          onViewResults={() => setView("results")}
         />
       )}
       {view === "results" && (
@@ -432,9 +432,9 @@ type BooksViewProps = {
   token: string;
   classId: string;
   classPeriod: ClassPeriod | null;
-  onClassId: (classId: string) => void;
   onClassPeriod: (classPeriod: ClassPeriod) => void;
   onAssignment: (assignment: AssignmentResults) => void;
+  onViewResults: () => void;
 };
 
 function BooksView(props: BooksViewProps) {
@@ -578,7 +578,7 @@ function BooksView(props: BooksViewProps) {
       await api.runAssignment(props.token, props.classId);
       const latest = await api.getLatestAssignment(props.token, props.classId);
       props.onAssignment(latest);
-      setNotice({ kind: "success", message: "Assignment run completed." });
+      props.onViewResults();
     });
   }
 
@@ -912,11 +912,11 @@ function ResultsView(props: ResultsViewProps) {
 
   const bookNames = useMemo(
     () => new Map((props.classPeriod?.books ?? []).map((book) => [book.id, book.title])),
-    [props.classPeriod]
+    [props.classPeriod?.books]
   );
   const studentNames = useMemo(
     () => new Map((props.classPeriod?.students ?? []).map((student) => [student.id, student.username])),
-    [props.classPeriod]
+    [props.classPeriod?.students]
   );
   const unassignedStudents = useMemo(() => {
     if (!props.latestAssignment) {
@@ -925,7 +925,7 @@ function ResultsView(props: ResultsViewProps) {
 
     const assignedStudentIds = new Set(props.latestAssignment.results.map((result) => result.studentId));
     return (props.classPeriod?.students ?? []).filter((student) => !assignedStudentIds.has(student.id));
-  }, [props.classPeriod, props.latestAssignment]);
+  }, [props.latestAssignment, props.classPeriod?.students]);
 
   async function refreshResults() {
     return withNotice(setLoading, setNotice, "results", async () => {
@@ -944,10 +944,10 @@ function ResultsView(props: ResultsViewProps) {
   return (
     <section className="workspace-grid results-grid">
       <Panel title="Results lookup" icon={<RefreshCw size={18} />}>
-        <label>
-          Class ID
-          <input value={props.classId} onChange={(event) => props.onClassId(event.target.value)} />
-        </label>
+        <div className="metric-grid two">
+          <Metric label="Class" value={props.classPeriod?.name ?? "No class selected"} />
+          <Metric label="Link ID" value={props.classPeriod?.joinCode ?? "-"} />
+        </div>
         <ActionButton
           icon={<RefreshCw size={16} />}
           label="Refresh"
@@ -1271,7 +1271,6 @@ function EditableStudentTable({
       <thead>
         <tr>
           <th>Username</th>
-          <th>Student ID</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -1289,7 +1288,6 @@ function EditableStudentTable({
                 student.username
               )}
             </td>
-            <td>{student.id}</td>
             <td>
               <div className="table-actions">
                 {editingStudentId === student.id ? (
