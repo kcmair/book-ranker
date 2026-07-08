@@ -9,15 +9,13 @@ public record ClassState(
     List<Book> books,
     Map<Student, Map<Book, Integer>> rankings,
     Map<Book, Integer> capacities,
-    int minimumRankingCount
-) {
+    int minimumRankingCount) {
 
   public ClassState(
       List<Student> students,
       List<Book> books,
       Map<Student, Map<Book, Integer>> rankings,
-      Map<Book, Integer> capacities
-  ) {
+      Map<Book, Integer> capacities) {
     this(students, books, rankings, capacities, books.size());
   }
 
@@ -27,7 +25,8 @@ public record ClassState(
     rankings = Map.copyOf(Objects.requireNonNull(rankings, "rankings"));
     capacities = Map.copyOf(Objects.requireNonNull(capacities, "capacities"));
     if (minimumRankingCount < 0 || minimumRankingCount > books.size()) {
-      throw new IllegalArgumentException("Minimum ranking count must be between 0 and number of books");
+      throw new IllegalArgumentException(
+          "Minimum ranking count must be between 0 and number of books");
     }
 
     for (Book book : books) {

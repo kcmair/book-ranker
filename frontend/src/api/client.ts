@@ -78,15 +78,13 @@ const liveClient = {
     request<{ classes: Pick<ClassPeriod, "id" | "name" | "joinCode">[] }>("/api/classes", "GET", { token }),
   createClassPeriod: (token: string, name: string) =>
     request<CreateClassPeriodResponse>("/api/classes", "POST", { token, body: { name } }),
-  getClassPeriod: (token: string, classId: string) =>
-    request<ClassPeriod>(`/api/classes/${classId}`, "GET", { token }),
+  getClassPeriod: (token: string, classId: string) => request<ClassPeriod>(`/api/classes/${classId}`, "GET", { token }),
   updateClassPeriod: (token: string, classId: string, name: string, minimumRankingCount?: number) =>
     request<Pick<ClassPeriod, "id" | "name" | "joinCode">>(`/api/classes/${classId}`, "PATCH", {
       token,
       body: { name, minimumRankingCount }
     }),
-  deleteClassPeriod: (token: string, classId: string) =>
-    request<void>(`/api/classes/${classId}`, "DELETE", { token }),
+  deleteClassPeriod: (token: string, classId: string) => request<void>(`/api/classes/${classId}`, "DELETE", { token }),
   addBook: (token: string, classId: string, title: string, capacity: number) =>
     request<{ bookId: string }>(`/api/classes/${classId}/books`, "POST", {
       token,
@@ -104,7 +102,10 @@ const liveClient = {
   joinClassPeriod: (joinCode: string, username: string) =>
     request<JoinClassPeriodResponse>("/api/classes/join", "POST", { body: { joinCode, username } }),
   getStudentBooks: (studentId: string) =>
-    request<{ className?: string; minimumRankingCount?: number; books: Book[] }>(`/api/students/${studentId}/books`, "GET"),
+    request<{ className?: string; minimumRankingCount?: number; books: Book[] }>(
+      `/api/students/${studentId}/books`,
+      "GET"
+    ),
   updateStudent: (token: string, classId: string, studentId: string, username: string) =>
     request<{ id: string; username: string }>(`/api/classes/${classId}/students/${studentId}`, "PATCH", {
       token,
@@ -118,8 +119,7 @@ const liveClient = {
     request<SubmitRankingsResponse>(`/api/students/${studentId}/rankings`, "POST", {
       body: { rankings }
     }),
-  getStudentStatus: (studentId: string) =>
-    request<StudentStatus>(`/api/students/${studentId}/status`, "GET"),
+  getStudentStatus: (studentId: string) => request<StudentStatus>(`/api/students/${studentId}/status`, "GET"),
   runAssignment: (token: string, classId: string) =>
     request<RunAssignmentResponse>(`/api/classes/${classId}/assign`, "POST", { token }),
   getLatestAssignment: (token: string, classId: string) =>

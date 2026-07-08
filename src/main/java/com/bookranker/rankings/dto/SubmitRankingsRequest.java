@@ -7,7 +7,8 @@ import java.util.List;
 
 @Schema(description = "Request to submit student book rankings")
 public record SubmitRankingsRequest(
-    @Schema(description = "Ranked books for the student's class period. The list must meet the class minimum ranking count.")
-    @NotEmpty List<@Valid RankingItemRequest> rankings
-) {
-}
+    @Schema(
+            description =
+                "Ranked books for the student's class period. The list must meet the class minimum ranking count.")
+        @NotEmpty
+        List<@Valid RankingItemRequest> rankings) {}

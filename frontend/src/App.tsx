@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BarChart3,
   BookOpen,
@@ -52,7 +52,9 @@ function getPollJoinCode() {
     return "";
   }
 
-  return decodeURIComponent(path.slice("/poll/".length).split("/")[0] ?? "").trim().toUpperCase();
+  return decodeURIComponent(path.slice("/poll/".length).split("/")[0] ?? "")
+    .trim()
+    .toUpperCase();
 }
 
 function buildPollUrl(joinCode: string | undefined) {
@@ -123,12 +125,7 @@ function App() {
         </button>
       </header>
 
-      {view === "classes" && (
-        <TeacherLanding
-          token={token}
-          onOpenClass={openClassBooks}
-        />
-      )}
+      {view === "classes" && <TeacherLanding token={token} onOpenClass={openClassBooks} />}
       {view === "books" && (
         <BooksView
           token={token}
@@ -197,9 +194,7 @@ function LoggedOutLanding({
         <div className="landing-copy">
           <p className="eyebrow">Class book assignments</p>
           <h1>Rank books, balance capacity, assign fairly.</h1>
-          <p>
-            Build a class reading list, collect student rankings, and run assignments from one teacher workspace.
-          </p>
+          <p>Build a class reading list, collect student rankings, and run assignments from one teacher workspace.</p>
         </div>
 
         <article className="auth-panel">
@@ -210,7 +205,12 @@ function LoggedOutLanding({
           <div className="form-grid">
             <label>
               Email
-              <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" autoComplete="email" />
+              <input
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                type="email"
+                autoComplete="email"
+              />
             </label>
             <label>
               Password
@@ -251,16 +251,16 @@ function TeacherLanding(props: TeacherLandingProps) {
   const [loading, setLoading] = useState("");
   const [confirmation, setConfirmation] = useState<Confirmation>(null);
 
-  useEffect(() => {
-    void refreshClasses();
-  }, [props.token]);
-
-  async function refreshClasses() {
+  const refreshClasses = useCallback(async () => {
     return withNotice(setLoading, setNotice, "classes", async () => {
       const response = await api.listClassPeriods(props.token);
       setClasses(response.classes);
     });
-  }
+  }, [props.token]);
+
+  useEffect(() => {
+    void refreshClasses();
+  }, [refreshClasses]);
 
   async function createClassPeriod() {
     return withNotice(setLoading, setNotice, "class", async () => {
@@ -337,7 +337,12 @@ function TeacherLanding(props: TeacherLandingProps) {
             <input value={className} onChange={(event) => setClassName(event.target.value)} />
           </label>
         </div>
-        <ActionButton icon={<Plus size={16} />} label="Create class" busy={loading === "class"} onClick={createClassPeriod} />
+        <ActionButton
+          icon={<Plus size={16} />}
+          label="Create class"
+          busy={loading === "class"}
+          onClick={createClassPeriod}
+        />
       </Panel>
 
       <Panel title="Current classes" icon={<Users size={18} />}>
@@ -480,12 +485,7 @@ function BooksView(props: BooksViewProps) {
 
     return withNotice(setLoading, setNotice, "minimum-ranking-count", async () => {
       const boundedMinimum = Math.min(bookCount, Math.max(1, minimumRankingCount));
-      await api.updateClassPeriod(
-        props.token,
-        props.classId,
-        props.classPeriod?.name ?? "",
-        boundedMinimum
-      );
+      await api.updateClassPeriod(props.token, props.classId, props.classPeriod?.name ?? "", boundedMinimum);
       const details = await api.getClassPeriod(props.token, props.classId);
       props.onClassPeriod(details);
       setNotice({ kind: "success", message: "Minimum votes updated." });
@@ -644,7 +644,12 @@ function BooksView(props: BooksViewProps) {
             </div>
           </label>
         </div>
-        <ActionButton icon={<Check size={16} />} label="Run assignment" busy={loading === "assign"} onClick={runAssignment} />
+        <ActionButton
+          icon={<Check size={16} />}
+          label="Run assignment"
+          busy={loading === "assign"}
+          onClick={runAssignment}
+        />
       </Panel>
 
       <Panel title="Book list" icon={<BookOpen size={18} />} wide>
@@ -664,11 +669,7 @@ function BooksView(props: BooksViewProps) {
           </label>
           <ActionButton icon={<Plus size={16} />} label="Add" busy={loading === "book"} onClick={addBook} />
         </div>
-        <EditableBookTable
-          books={props.classPeriod?.books ?? []}
-          onUpdate={updateBook}
-          onDelete={confirmDeleteBook}
-        />
+        <EditableBookTable books={props.classPeriod?.books ?? []} onUpdate={updateBook} onDelete={confirmDeleteBook} />
       </Panel>
 
       <Panel title="Students" icon={<ClipboardList size={18} />} wide>
@@ -706,7 +707,6 @@ function StudentPoll() {
   const [assignmentGridChecked, setAssignmentGridChecked] = useState(!hasUrlJoinCode);
   const [username, setUsername] = useState("");
   const [studentId, setStudentId] = useState("");
-  const [classId, setClassId] = useState("");
   const [classDisplayName, setClassDisplayName] = useState("");
   const [books, setBooks] = useState<Book[]>([]);
   const [minimumRankingCount, setMinimumRankingCount] = useState(0);
@@ -728,7 +728,8 @@ function StudentPoll() {
     setAssignmentGridChecked(false);
     setPublicAssignmentGrid(null);
 
-    api.getClassAssignmentGrid(urlJoinCode)
+    api
+      .getClassAssignmentGrid(urlJoinCode)
       .then((grid) => {
         if (active) {
           setPublicAssignmentGrid(grid.assignmentRunId ? grid : null);
@@ -755,7 +756,6 @@ function StudentPoll() {
         api.getStudentBooks(response.studentId)
       ]);
       setStudentId(response.studentId);
-      setClassId(response.classId);
       setClassDisplayName(response.className ?? bookResponse.className ?? (joinCode || response.classId));
       setStatus(nextStatus);
       setBooks(bookResponse.books);
@@ -821,7 +821,12 @@ function StudentPoll() {
                 <input value={username} onChange={(event) => setUsername(event.target.value)} />
               </label>
             </div>
-            <ActionButton icon={<Send size={16} />} label="Continue" busy={loading === "join"} onClick={joinClassPeriod} />
+            <ActionButton
+              icon={<Send size={16} />}
+              label="Continue"
+              busy={loading === "join"}
+              onClick={joinClassPeriod}
+            />
           </Panel>
         )}
 
@@ -839,8 +844,8 @@ function StudentPoll() {
             </div>
             {existingMember && (
               <div className="inline-notice">
-                This student is already a member of this class. You can revise the rankings below; submitting again will replace
-                the old rankings.
+                This student is already a member of this class. You can revise the rankings below; submitting again will
+                replace the old rankings.
               </div>
             )}
             <div className="metric-grid two">
@@ -943,7 +948,12 @@ function ResultsView(props: ResultsViewProps) {
           Class ID
           <input value={props.classId} onChange={(event) => props.onClassId(event.target.value)} />
         </label>
-        <ActionButton icon={<RefreshCw size={16} />} label="Refresh" busy={loading === "results"} onClick={refreshResults} />
+        <ActionButton
+          icon={<RefreshCw size={16} />}
+          label="Refresh"
+          busy={loading === "results"}
+          onClick={refreshResults}
+        />
       </Panel>
 
       <Panel title="Current metrics" icon={<BarChart3 size={18} />} wide>
@@ -1051,15 +1061,7 @@ function ActionButton({
   );
 }
 
-function Metric({
-  label,
-  value,
-  valueTone
-}: {
-  label: string;
-  value: string | number;
-  valueTone?: "danger";
-}) {
+function Metric({ label, value, valueTone }: { label: string; value: string | number; valueTone?: "danger" }) {
   return (
     <div className="metric">
       <span>{label}</span>
@@ -1191,7 +1193,11 @@ function EditableBookTable({
           <tr key={book.id}>
             <td>
               {editingBookId === book.id ? (
-                <input value={title} onChange={(event) => setTitle(event.target.value)} aria-label={`Title for ${book.title}`} />
+                <input
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                  aria-label={`Title for ${book.title}`}
+                />
               ) : (
                 book.title
               )}
@@ -1330,13 +1336,7 @@ function NoticeBanner({ notice }: { notice: Notice }) {
   return <div className={`notice ${notice.kind}`}>{notice.message}</div>;
 }
 
-function ConfirmationDialog({
-  confirmation,
-  onCancel
-}: {
-  confirmation: Confirmation;
-  onCancel: () => void;
-}) {
+function ConfirmationDialog({ confirmation, onCancel }: { confirmation: Confirmation; onCancel: () => void }) {
   if (!confirmation) {
     return null;
   }

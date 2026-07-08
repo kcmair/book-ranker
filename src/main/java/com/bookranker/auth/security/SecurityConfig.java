@@ -34,21 +34,29 @@ public class SecurityConfig {
 
   @Bean
   public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-    return http
-        .cors(Customizer.withDefaults())
+    return http.cors(Customizer.withDefaults())
         .csrf(csrf -> csrf.disable())
         .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.disable()))
-        .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-        .authorizeHttpRequests(auth -> auth
-            .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-            .requestMatchers("/api/teachers/register", "/api/teachers/login").permitAll()
-            .requestMatchers("/api/teachers/me/**").authenticated()
-            .requestMatchers("/h2-console/**").permitAll()
-            .requestMatchers(HttpMethod.POST, "/api/classes/join").permitAll()
-            .requestMatchers("/api/students/**").permitAll()
-            .requestMatchers("/api/classes/**").authenticated()
-            .anyRequest().permitAll()
-        )
+        .sessionManagement(
+            session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .authorizeHttpRequests(
+            auth ->
+                auth.requestMatchers(HttpMethod.OPTIONS, "/**")
+                    .permitAll()
+                    .requestMatchers("/api/teachers/register", "/api/teachers/login")
+                    .permitAll()
+                    .requestMatchers("/api/teachers/me/**")
+                    .authenticated()
+                    .requestMatchers("/h2-console/**")
+                    .permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/classes/join")
+                    .permitAll()
+                    .requestMatchers("/api/students/**")
+                    .permitAll()
+                    .requestMatchers("/api/classes/**")
+                    .authenticated()
+                    .anyRequest()
+                    .permitAll())
         .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
         .build();
   }
@@ -60,19 +68,23 @@ public class SecurityConfig {
 
   @Bean
   public UserDetailsService userDetailsService(TeacherRepository teacherRepository) {
-    return username -> teacherRepository.findByEmail(username)
-        .map(teacher -> User.withUsername(teacher.getEmail())
-            .password(teacher.getPasswordHash())
-            .roles("TEACHER")
-            .build())
-        .orElseThrow(() -> new UsernameNotFoundException("Teacher not found"));
+    return username ->
+        teacherRepository
+            .findByEmail(username)
+            .map(
+                teacher ->
+                    User.withUsername(teacher.getEmail())
+                        .password(teacher.getPasswordHash())
+                        .roles("TEACHER")
+                        .build())
+            .orElseThrow(() -> new UsernameNotFoundException("Teacher not found"));
   }
 
   @Bean
   public CorsConfigurationSource corsConfigurationSource(
-      @Value("${bookranker.cors.allowed-origins:http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000}")
-      String allowedOrigins
-  ) {
+      @Value(
+              "${bookranker.cors.allowed-origins:http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000}")
+          String allowedOrigins) {
     CorsConfiguration configuration = new CorsConfiguration();
     configuration.setAllowedOrigins(splitCsv(allowedOrigins));
     configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));

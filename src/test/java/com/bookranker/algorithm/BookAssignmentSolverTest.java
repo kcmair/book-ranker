@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,13 +21,13 @@ class BookAssignmentSolverTest {
     ClassState.Book b1 = book("b1");
     ClassState.Book b2 = book("b2");
 
-    AssignmentResult result = solver.solve(state(
-        List.of(s1, s2),
-        List.of(b1, b2),
-        capacities(Map.of(b1, 1, b2, 1)),
-        ranks(s1, Map.of(b1, 1, b2, 2),
-            s2, Map.of(b1, 2, b2, 1))
-    ));
+    AssignmentResult result =
+        solver.solve(
+            state(
+                List.of(s1, s2),
+                List.of(b1, b2),
+                capacities(Map.of(b1, 1, b2, 1)),
+                ranks(s1, Map.of(b1, 1, b2, 2), s2, Map.of(b1, 2, b2, 1))));
 
     assertEquals(Map.of(s1, b1, s2, b2), result.assignments());
     assertTrue(result.unassignedStudents().isEmpty());
@@ -45,14 +44,14 @@ class BookAssignmentSolverTest {
     ClassState.Book b1 = book("b1");
     ClassState.Book b2 = book("b2");
 
-    AssignmentResult result = solver.solve(state(
-        List.of(s1, s2, s3),
-        List.of(b1, b2),
-        capacities(Map.of(b1, 1, b2, 1)),
-        ranks(s1, Map.of(b1, 1, b2, 2),
-            s2, Map.of(b1, 1, b2, 2),
-            s3, Map.of(b1, 2, b2, 1))
-    ));
+    AssignmentResult result =
+        solver.solve(
+            state(
+                List.of(s1, s2, s3),
+                List.of(b1, b2),
+                capacities(Map.of(b1, 1, b2, 1)),
+                ranks(
+                    s1, Map.of(b1, 1, b2, 2), s2, Map.of(b1, 1, b2, 2), s3, Map.of(b1, 2, b2, 1))));
 
     assertEquals(2, result.assignments().size());
     assertEquals(1, result.unassignedStudents().size());
@@ -67,12 +66,13 @@ class BookAssignmentSolverTest {
     ClassState.Book b1 = book("b1");
     ClassState.Book b2 = book("b2");
 
-    AssignmentResult result = solver.solve(state(
-        List.of(s1),
-        List.of(b1, b2),
-        capacities(Map.of(b1, 5, b2, 5)),
-        ranks(s1, Map.of(b1, 1, b2, 2))
-    ));
+    AssignmentResult result =
+        solver.solve(
+            state(
+                List.of(s1),
+                List.of(b1, b2),
+                capacities(Map.of(b1, 5, b2, 5)),
+                ranks(s1, Map.of(b1, 1, b2, 2))));
 
     assertEquals(Map.of(s1, b1), result.assignments());
     assertTrue(result.unassignedStudents().isEmpty());
@@ -86,14 +86,19 @@ class BookAssignmentSolverTest {
     ClassState.Book popular = book("popular");
     ClassState.Book backup = book("backup");
 
-    AssignmentResult result = solver.solve(state(
-        List.of(s1, s2, s3),
-        List.of(popular, backup),
-        capacities(Map.of(popular, 1, backup, 2)),
-        ranks(s1, Map.of(popular, 1, backup, 2),
-            s2, Map.of(popular, 1, backup, 2),
-            s3, Map.of(popular, 1, backup, 2))
-    ));
+    AssignmentResult result =
+        solver.solve(
+            state(
+                List.of(s1, s2, s3),
+                List.of(popular, backup),
+                capacities(Map.of(popular, 1, backup, 2)),
+                ranks(
+                    s1,
+                    Map.of(popular, 1, backup, 2),
+                    s2,
+                    Map.of(popular, 1, backup, 2),
+                    s3,
+                    Map.of(popular, 1, backup, 2))));
 
     assertEquals(3, result.assignments().size());
     assertEquals(1, assignedCount(result, popular));
@@ -108,13 +113,13 @@ class BookAssignmentSolverTest {
     ClassState.Book b1 = book("b1");
     ClassState.Book b2 = book("b2");
 
-    AssignmentResult result = solver.solve(state(
-        List.of(complete, incomplete),
-        List.of(b1, b2),
-        capacities(Map.of(b1, 2, b2, 2)),
-        ranks(complete, Map.of(b1, 1, b2, 2),
-            incomplete, Map.of(b1, 1))
-    ));
+    AssignmentResult result =
+        solver.solve(
+            state(
+                List.of(complete, incomplete),
+                List.of(b1, b2),
+                capacities(Map.of(b1, 2, b2, 2)),
+                ranks(complete, Map.of(b1, 1, b2, 2), incomplete, Map.of(b1, 1))));
 
     assertEquals(Map.of(complete, b1), result.assignments());
     assertTrue(result.unassignedStudents().contains(incomplete));
@@ -128,14 +133,14 @@ class BookAssignmentSolverTest {
     ClassState.Book b2 = book("b2");
     ClassState.Book b3 = book("b3");
 
-    AssignmentResult result = solver.solve(new ClassState(
-        List.of(partial, incomplete),
-        List.of(b1, b2, b3),
-        ranks(partial, Map.of(b1, 1, b2, 2),
-            incomplete, Map.of(b1, 1)),
-        capacities(Map.of(b1, 0, b2, 0, b3, 2)),
-        2
-    ));
+    AssignmentResult result =
+        solver.solve(
+            new ClassState(
+                List.of(partial, incomplete),
+                List.of(b1, b2, b3),
+                ranks(partial, Map.of(b1, 1, b2, 2), incomplete, Map.of(b1, 1)),
+                capacities(Map.of(b1, 0, b2, 0, b3, 2)),
+                2));
 
     assertEquals(Map.of(partial, b3), result.assignments());
     assertTrue(result.unassignedStudents().contains(incomplete));
@@ -149,13 +154,12 @@ class BookAssignmentSolverTest {
     ClassState.Student s2 = student("s2");
     ClassState.Book b1 = book("b1");
     ClassState.Book b2 = book("b2");
-    ClassState state = state(
-        List.of(s1, s2),
-        List.of(b1, b2),
-        capacities(Map.of(b1, 1, b2, 1)),
-        ranks(s1, Map.of(b1, 1, b2, 1),
-            s2, Map.of(b1, 1, b2, 1))
-    );
+    ClassState state =
+        state(
+            List.of(s1, s2),
+            List.of(b1, b2),
+            capacities(Map.of(b1, 1, b2, 1)),
+            ranks(s1, Map.of(b1, 1, b2, 1), s2, Map.of(b1, 1, b2, 1)));
 
     AssignmentResult first = solver.solve(state);
     AssignmentResult second = solver.solve(state);
@@ -204,8 +208,7 @@ class BookAssignmentSolverTest {
       List<ClassState.Student> students,
       List<ClassState.Book> books,
       Map<ClassState.Book, Integer> capacities,
-      Map<ClassState.Student, Map<ClassState.Book, Integer>> rankings
-  ) {
+      Map<ClassState.Student, Map<ClassState.Book, Integer>> rankings) {
     return new ClassState(students, books, rankings, capacities);
   }
 
@@ -223,13 +226,13 @@ class BookAssignmentSolverTest {
 
   @SafeVarargs
   private final Map<ClassState.Student, Map<ClassState.Book, Integer>> ranks(
-      Object... studentRankingPairs
-  ) {
+      Object... studentRankingPairs) {
     Map<ClassState.Student, Map<ClassState.Book, Integer>> result = new LinkedHashMap<>();
     for (int i = 0; i < studentRankingPairs.length; i += 2) {
       ClassState.Student student = (ClassState.Student) studentRankingPairs[i];
       @SuppressWarnings("unchecked")
-      Map<ClassState.Book, Integer> rankings = (Map<ClassState.Book, Integer>) studentRankingPairs[i + 1];
+      Map<ClassState.Book, Integer> rankings =
+          (Map<ClassState.Book, Integer>) studentRankingPairs[i + 1];
       result.put(student, new LinkedHashMap<>(rankings));
     }
     return result;

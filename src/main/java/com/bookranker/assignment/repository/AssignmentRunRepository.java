@@ -11,9 +11,7 @@ public interface AssignmentRunRepository extends JpaRepository<AssignmentRun, St
   Optional<AssignmentRun> findFirstByClassPeriodIdOrderByCreatedAtDesc(String classPeriodId);
 
   Optional<AssignmentRun> findFirstByClassPeriodIdAndStatusOrderByCreatedAtDesc(
-      String classPeriodId,
-      AssignmentRunStatus status
-  );
+      String classPeriodId, AssignmentRunStatus status);
 
   List<AssignmentRun> findByClassPeriodIdOrderByCreatedAtDesc(String classPeriodId);
 

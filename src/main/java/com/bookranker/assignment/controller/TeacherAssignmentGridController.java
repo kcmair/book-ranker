@@ -14,7 +14,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/teachers/me/assignment-grid")
-@Tag(name = "Teacher Assignment Grid", description = "Authenticated teacher assignment spreadsheet APIs")
+@Tag(
+    name = "Teacher Assignment Grid",
+    description = "Authenticated teacher assignment spreadsheet APIs")
 @SecurityRequirement(name = "bearerAuth")
 public class TeacherAssignmentGridController {
 
@@ -27,15 +29,18 @@ public class TeacherAssignmentGridController {
   @GetMapping
   @Operation(
       summary = "Get teacher assignment spreadsheet grid",
-      description = "Returns spreadsheet-shaped JSON for all classes owned by the currently authenticated teacher, "
-          + "using each class's latest completed assignment run. Requires the Swagger Authorize bearer token or an "
-          + "Authorization: Bearer <token> header.",
-      security = @SecurityRequirement(name = "bearerAuth")
-  )
-  @ApiResponses(value = {
-      @ApiResponse(responseCode = "200", description = "Teacher assignment grid returned successfully"),
-      @ApiResponse(responseCode = "401", description = "Missing or invalid bearer token")
-  })
+      description =
+          "Returns spreadsheet-shaped JSON for all classes owned by the currently authenticated teacher, "
+              + "using each class's latest completed assignment run. Requires the Swagger Authorize bearer token or an "
+              + "Authorization: Bearer <token> header.",
+      security = @SecurityRequirement(name = "bearerAuth"))
+  @ApiResponses(
+      value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Teacher assignment grid returned successfully"),
+        @ApiResponse(responseCode = "401", description = "Missing or invalid bearer token")
+      })
   public TeacherAssignmentGridResponse getTeacherAssignmentGrid(Principal principal) {
     return publicAssignmentGridService.getTeacherGrid(principal.getName());
   }

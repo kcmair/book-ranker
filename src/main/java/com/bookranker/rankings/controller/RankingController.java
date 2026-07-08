@@ -28,16 +28,19 @@ public class RankingController {
 
   @PostMapping
   @Operation(summary = "Submit student book rankings")
-  @ApiResponses(value = {
-      @ApiResponse(responseCode = "200", description = "Rankings submitted successfully"),
-      @ApiResponse(responseCode = "400", description = "Invalid ranking request or ranking count below class minimum"),
-      @ApiResponse(responseCode = "404", description = "Student not found")
-  })
+  @ApiResponses(
+      value = {
+        @ApiResponse(responseCode = "200", description = "Rankings submitted successfully"),
+        @ApiResponse(
+            responseCode = "400",
+            description = "Invalid ranking request or ranking count below class minimum"),
+        @ApiResponse(responseCode = "404", description = "Student not found")
+      })
   public SubmitRankingsResponse submitRankings(
       @Parameter(description = "Student ID", example = "550e8400-e29b-41d4-a716-446655440000")
-      @PathVariable String studentId,
-      @Valid @RequestBody SubmitRankingsRequest request
-  ) {
+          @PathVariable
+          String studentId,
+      @Valid @RequestBody SubmitRankingsRequest request) {
     return rankingService.submitRankings(studentId, request);
   }
 }

@@ -1,8 +1,8 @@
 package com.bookranker.assignment;
 
+import static org.hamcrest.Matchers.blankOrNullString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.not;
-import static org.hamcrest.Matchers.blankOrNullString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -25,15 +25,14 @@ import org.springframework.test.web.servlet.MvcResult;
 @AutoConfigureMockMvc
 class AssignmentControllerTests {
 
-  @Autowired
-  private MockMvc mockMvc;
+  @Autowired private MockMvc mockMvc;
 
-  @Autowired
-  private ObjectMapper objectMapper;
+  @Autowired private ObjectMapper objectMapper;
 
   @Test
   void assignmentRunRequiresAuthentication() throws Exception {
-    mockMvc.perform(post("/api/classes/{classId}/assign", UUID.randomUUID()))
+    mockMvc
+        .perform(post("/api/classes/{classId}/assign", UUID.randomUUID()))
         .andExpect(status().isForbidden());
   }
 
@@ -42,24 +41,31 @@ class AssignmentControllerTests {
     String token = registerAndLoginTeacher();
     ClassFixture fixture = createRankedClassPeriod(token);
 
-    MvcResult runResult = mockMvc.perform(post("/api/classes/{classId}/assign", fixture.classId())
-            .header(HttpHeaders.AUTHORIZATION, bearer(token)))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.assignmentRunId", not(blankOrNullString())))
-        .andExpect(jsonPath("$.status", equalTo("COMPLETE")))
-        .andExpect(jsonPath("$.satisfactionScore", equalTo(1.0)))
-        .andExpect(jsonPath("$.firstChoiceCount", equalTo(2)))
-        .andExpect(jsonPath("$.topThreeCount", equalTo(2)))
-        .andExpect(jsonPath("$.worseThanThirdCount", equalTo(0)))
-        .andExpect(jsonPath("$.unassignedStudentCount", equalTo(0)))
-        .andReturn();
+    MvcResult runResult =
+        mockMvc
+            .perform(
+                post("/api/classes/{classId}/assign", fixture.classId())
+                    .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.assignmentRunId", not(blankOrNullString())))
+            .andExpect(jsonPath("$.status", equalTo("COMPLETE")))
+            .andExpect(jsonPath("$.satisfactionScore", equalTo(1.0)))
+            .andExpect(jsonPath("$.firstChoiceCount", equalTo(2)))
+            .andExpect(jsonPath("$.topThreeCount", equalTo(2)))
+            .andExpect(jsonPath("$.worseThanThirdCount", equalTo(0)))
+            .andExpect(jsonPath("$.unassignedStudentCount", equalTo(0)))
+            .andReturn();
 
-    String runId = objectMapper.readTree(runResult.getResponse().getContentAsString())
-        .get("assignmentRunId")
-        .asText();
+    String runId =
+        objectMapper
+            .readTree(runResult.getResponse().getContentAsString())
+            .get("assignmentRunId")
+            .asText();
 
-    mockMvc.perform(get("/api/classes/{classId}/assignments/latest", fixture.classId())
-            .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+    mockMvc
+        .perform(
+            get("/api/classes/{classId}/assignments/latest", fixture.classId())
+                .header(HttpHeaders.AUTHORIZATION, bearer(token)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.runId", equalTo(runId)))
         .andExpect(jsonPath("$.satisfactionScore", equalTo(1.0)))
@@ -69,8 +75,10 @@ class AssignmentControllerTests {
         .andExpect(jsonPath("$.unassignedStudentCount", equalTo(0)))
         .andExpect(jsonPath("$.results.length()", equalTo(2)));
 
-    mockMvc.perform(get("/api/classes/{classId}/assignments", fixture.classId())
-            .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+    mockMvc
+        .perform(
+            get("/api/classes/{classId}/assignments", fixture.classId())
+                .header(HttpHeaders.AUTHORIZATION, bearer(token)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.runs.length()", equalTo(1)))
         .andExpect(jsonPath("$.runs[0].runId", equalTo(runId)))
@@ -93,16 +101,22 @@ class AssignmentControllerTests {
     submitRankings(alphaStudentId, firstSharedBookId, unusedBookId);
     submitRankings(betaStudentId, firstSharedBookId, unusedBookId);
 
-    ClassFixture secondClass = createRankedClassPeriod(token, "Second Assignment Class", "Shared Book", "Other Book");
+    ClassFixture secondClass =
+        createRankedClassPeriod(token, "Second Assignment Class", "Shared Book", "Other Book");
 
-    mockMvc.perform(post("/api/classes/{classId}/assign", firstClass.classId())
-            .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+    mockMvc
+        .perform(
+            post("/api/classes/{classId}/assign", firstClass.classId())
+                .header(HttpHeaders.AUTHORIZATION, bearer(token)))
         .andExpect(status().isOk());
-    mockMvc.perform(post("/api/classes/{classId}/assign", secondClass.classId())
-            .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+    mockMvc
+        .perform(
+            post("/api/classes/{classId}/assign", secondClass.classId())
+                .header(HttpHeaders.AUTHORIZATION, bearer(token)))
         .andExpect(status().isOk());
 
-    mockMvc.perform(get("/api/public/classes/{joinCode}/assignment-grid", firstClass.joinCode()))
+    mockMvc
+        .perform(get("/api/public/classes/{joinCode}/assignment-grid", firstClass.joinCode()))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.classId", equalTo(firstClass.classId())))
         .andExpect(jsonPath("$.className", equalTo("First Assignment Class")))
@@ -115,23 +129,32 @@ class AssignmentControllerTests {
         .andExpect(jsonPath("$.rows[1].bookTitle", equalTo("Unused Book")))
         .andExpect(jsonPath("$.rows[1].students.length()", equalTo(0)));
 
-    mockMvc.perform(get("/api/teachers/me/assignment-grid"))
-        .andExpect(status().isForbidden());
+    mockMvc.perform(get("/api/teachers/me/assignment-grid")).andExpect(status().isForbidden());
 
-    mockMvc.perform(get("/api/teachers/me/assignment-grid")
-            .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+    mockMvc
+        .perform(
+            get("/api/teachers/me/assignment-grid")
+                .header(HttpHeaders.AUTHORIZATION, bearer(token)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.columns.length()", equalTo(2)))
         .andExpect(jsonPath("$.columns[0].classId", equalTo(firstClass.classId())))
         .andExpect(jsonPath("$.columns[1].classId", equalTo(secondClass.classId())))
         .andExpect(jsonPath("$.rows[0].bookTitle", equalTo("Other Book")))
         .andExpect(jsonPath("$.rows[0].cells['%s']".formatted(firstClass.classId()), equalTo("")))
-        .andExpect(jsonPath("$.rows[0].cells['%s']".formatted(secondClass.classId()), equalTo("student-two")))
+        .andExpect(
+            jsonPath(
+                "$.rows[0].cells['%s']".formatted(secondClass.classId()), equalTo("student-two")))
         .andExpect(jsonPath("$.rows[1].bookTitle", equalTo("Shared Book")))
-        .andExpect(jsonPath("$.rows[1].cells['%s']".formatted(firstClass.classId()), equalTo("alpha-student")))
-        .andExpect(jsonPath("$.rows[1].cells['%s']".formatted(secondClass.classId()), equalTo("student-one")))
+        .andExpect(
+            jsonPath(
+                "$.rows[1].cells['%s']".formatted(firstClass.classId()), equalTo("alpha-student")))
+        .andExpect(
+            jsonPath(
+                "$.rows[1].cells['%s']".formatted(secondClass.classId()), equalTo("student-one")))
         .andExpect(jsonPath("$.rows[2].bookTitle", equalTo("")))
-        .andExpect(jsonPath("$.rows[2].cells['%s']".formatted(firstClass.classId()), equalTo("beta-student")))
+        .andExpect(
+            jsonPath(
+                "$.rows[2].cells['%s']".formatted(firstClass.classId()), equalTo("beta-student")))
         .andExpect(jsonPath("$.rows[2].cells['%s']".formatted(secondClass.classId()), equalTo("")))
         .andExpect(jsonPath("$.rows[3].bookTitle", equalTo("Unused Book")))
         .andExpect(jsonPath("$.rows[3].cells['%s']".formatted(firstClass.classId()), equalTo("")))
@@ -143,28 +166,38 @@ class AssignmentControllerTests {
     String token = registerAndLoginTeacher();
     ClassFixture fixture = createRankedClassPeriod(token);
 
-    mockMvc.perform(post("/api/classes/{classId}/assign", fixture.classId())
-            .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+    mockMvc
+        .perform(
+            post("/api/classes/{classId}/assign", fixture.classId())
+                .header(HttpHeaders.AUTHORIZATION, bearer(token)))
         .andExpect(status().isOk());
 
-    mockMvc.perform(delete("/api/classes/{classId}/students", fixture.classId()))
+    mockMvc
+        .perform(delete("/api/classes/{classId}/students", fixture.classId()))
         .andExpect(status().isForbidden());
 
-    mockMvc.perform(delete("/api/classes/{classId}/students", fixture.classId())
-            .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+    mockMvc
+        .perform(
+            delete("/api/classes/{classId}/students", fixture.classId())
+                .header(HttpHeaders.AUTHORIZATION, bearer(token)))
         .andExpect(status().isNoContent());
 
-    mockMvc.perform(get("/api/classes/{classId}", fixture.classId())
-            .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+    mockMvc
+        .perform(
+            get("/api/classes/{classId}", fixture.classId())
+                .header(HttpHeaders.AUTHORIZATION, bearer(token)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.books.length()", equalTo(2)))
         .andExpect(jsonPath("$.students.length()", equalTo(0)));
 
-    mockMvc.perform(get("/api/classes/{classId}/assignments/latest", fixture.classId())
-            .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+    mockMvc
+        .perform(
+            get("/api/classes/{classId}/assignments/latest", fixture.classId())
+                .header(HttpHeaders.AUTHORIZATION, bearer(token)))
         .andExpect(status().isNotFound());
 
-    mockMvc.perform(get("/api/public/classes/{joinCode}/assignment-grid", fixture.joinCode()))
+    mockMvc
+        .perform(get("/api/public/classes/{joinCode}/assignment-grid", fixture.joinCode()))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.assignmentRunId").doesNotExist())
         .andExpect(jsonPath("$.rows.length()", equalTo(2)))
@@ -177,11 +210,8 @@ class AssignmentControllerTests {
   }
 
   private ClassFixture createRankedClassPeriod(
-      String token,
-      String className,
-      String firstBookTitle,
-      String secondBookTitle
-  ) throws Exception {
+      String token, String className, String firstBookTitle, String secondBookTitle)
+      throws Exception {
     ClassFixture fixture = createClassPeriod(token, className);
 
     String bookOneId = addBook(token, fixture.classId(), firstBookTitle, 1);
@@ -196,16 +226,21 @@ class AssignmentControllerTests {
   }
 
   private ClassFixture createClassPeriod(String token, String className) throws Exception {
-    MvcResult classResult = mockMvc.perform(post("/api/classes")
-            .header(HttpHeaders.AUTHORIZATION, bearer(token))
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("""
+    MvcResult classResult =
+        mockMvc
+            .perform(
+                post("/api/classes")
+                    .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        """
                 {
                   "name": "%s"
                 }
-                """.formatted(className)))
-        .andExpect(status().isOk())
-        .andReturn();
+                """
+                            .formatted(className)))
+            .andExpect(status().isOk())
+            .andReturn();
 
     JsonNode classJson = objectMapper.readTree(classResult.getResponse().getContentAsString());
     String classId = classJson.get("classId").asText();
@@ -217,78 +252,106 @@ class AssignmentControllerTests {
   private String registerAndLoginTeacher() throws Exception {
     String email = "assignment-teacher-%s@example.com".formatted(UUID.randomUUID());
 
-    mockMvc.perform(post("/api/teachers/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("""
+    mockMvc
+        .perform(
+            post("/api/teachers/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
                 {
                   "email": "%s",
                   "password": "password123"
                 }
-                """.formatted(email)))
+                """
+                        .formatted(email)))
         .andExpect(status().isOk());
 
-    MvcResult loginResult = mockMvc.perform(post("/api/teachers/login")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("""
+    MvcResult loginResult =
+        mockMvc
+            .perform(
+                post("/api/teachers/login")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        """
                 {
                   "email": "%s",
                   "password": "password123"
                 }
-                """.formatted(email)))
-        .andExpect(status().isOk())
-        .andReturn();
+                """
+                            .formatted(email)))
+            .andExpect(status().isOk())
+            .andReturn();
 
-    return objectMapper.readTree(loginResult.getResponse().getContentAsString())
+    return objectMapper
+        .readTree(loginResult.getResponse().getContentAsString())
         .get("token")
         .asText();
   }
 
-  private String addBook(String token, String classId, String title, int capacity) throws Exception {
-    MvcResult bookResult = mockMvc.perform(post("/api/classes/{classId}/books", classId)
-            .header(HttpHeaders.AUTHORIZATION, bearer(token))
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("""
+  private String addBook(String token, String classId, String title, int capacity)
+      throws Exception {
+    MvcResult bookResult =
+        mockMvc
+            .perform(
+                post("/api/classes/{classId}/books", classId)
+                    .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        """
                 {
                   "title": "%s",
                   "capacity": %d
                 }
-                """.formatted(title, capacity)))
-        .andExpect(status().isOk())
-        .andReturn();
+                """
+                            .formatted(title, capacity)))
+            .andExpect(status().isOk())
+            .andReturn();
 
-    return objectMapper.readTree(bookResult.getResponse().getContentAsString())
+    return objectMapper
+        .readTree(bookResult.getResponse().getContentAsString())
         .get("bookId")
         .asText();
   }
 
   private String joinClass(String joinCode, String username) throws Exception {
-    MvcResult joinResult = mockMvc.perform(post("/api/classes/join")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("""
+    MvcResult joinResult =
+        mockMvc
+            .perform(
+                post("/api/classes/join")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        """
                 {
                   "joinCode": "%s",
                   "username": "%s"
                 }
-                """.formatted(joinCode, username)))
-        .andExpect(status().isOk())
-        .andReturn();
+                """
+                            .formatted(joinCode, username)))
+            .andExpect(status().isOk())
+            .andReturn();
 
-    return objectMapper.readTree(joinResult.getResponse().getContentAsString())
+    return objectMapper
+        .readTree(joinResult.getResponse().getContentAsString())
         .get("studentId")
         .asText();
   }
 
-  private void submitRankings(String studentId, String firstBookId, String secondBookId) throws Exception {
-    mockMvc.perform(post("/api/students/{studentId}/rankings", studentId)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("""
+  private void submitRankings(String studentId, String firstBookId, String secondBookId)
+      throws Exception {
+    mockMvc
+        .perform(
+            post("/api/students/{studentId}/rankings", studentId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
                 {
                   "rankings": [
                     { "bookId": "%s", "rank": 1 },
                     { "bookId": "%s", "rank": 2 }
                   ]
                 }
-                """.formatted(firstBookId, secondBookId)))
+                """
+                        .formatted(firstBookId, secondBookId)))
         .andExpect(status().isOk());
   }
 
@@ -296,6 +359,5 @@ class AssignmentControllerTests {
     return "Bearer " + token;
   }
 
-  private record ClassFixture(String classId, String joinCode) {
-  }
+  private record ClassFixture(String classId, String joinCode) {}
 }

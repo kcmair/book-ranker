@@ -25,17 +25,18 @@ public class BookService {
   public BookService(
       BookRepository bookRepository,
       ClassPeriodService classPeriodService,
-      RankingRepository rankingRepository
-  ) {
+      RankingRepository rankingRepository) {
     this.bookRepository = bookRepository;
     this.classPeriodService = classPeriodService;
     this.rankingRepository = rankingRepository;
   }
 
   @Transactional
-  public CreateBookResponse addBook(String classPeriodId, CreateBookRequest request, String teacherEmail) {
+  public CreateBookResponse addBook(
+      String classPeriodId, CreateBookRequest request, String teacherEmail) {
     if (request.capacity() < 1) {
-      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Book capacity must be greater than zero");
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Book capacity must be greater than zero");
     }
 
     ClassPeriod classPeriod = classPeriodService.findOwnedClassPeriod(classPeriodId, teacherEmail);
@@ -56,17 +57,12 @@ public class BookService {
         classPeriodService.effectiveMinimumRankingCount(classPeriod),
         bookRepository.findByClassPeriodId(classPeriodId).stream()
             .map(book -> new BookResponse(book.getId(), book.getTitle(), book.getCapacity()))
-            .toList()
-    );
+            .toList());
   }
 
   @Transactional
   public BookResponse updateBook(
-      String classPeriodId,
-      String bookId,
-      UpdateBookRequest request,
-      String teacherEmail
-  ) {
+      String classPeriodId, String bookId, UpdateBookRequest request, String teacherEmail) {
     Book book = findOwnedBook(classPeriodId, bookId, teacherEmail);
     book.setTitle(request.title());
     book.setCapacity(request.capacity());
@@ -82,7 +78,8 @@ public class BookService {
 
   private Book findOwnedBook(String classPeriodId, String bookId, String teacherEmail) {
     classPeriodService.findOwnedClassPeriod(classPeriodId, teacherEmail);
-    return bookRepository.findByIdAndClassPeriodId(bookId, classPeriodId)
+    return bookRepository
+        .findByIdAndClassPeriodId(bookId, classPeriodId)
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Book not found"));
   }
 }

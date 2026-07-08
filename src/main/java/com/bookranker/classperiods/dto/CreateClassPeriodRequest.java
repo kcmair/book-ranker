@@ -5,7 +5,5 @@ import jakarta.validation.constraints.NotBlank;
 
 @Schema(description = "Request to create a new class period")
 public record CreateClassPeriodRequest(
-    @Schema(description = "Name of the class period", example = "English 12")
-    @NotBlank String name
-) {
-}
+    @Schema(description = "Name of the class period", example = "English 12") @NotBlank
+        String name) {}

@@ -1,5 +1,7 @@
 package com.bookranker.classperiods.service;
 
+import com.bookranker.assignment.repository.AssignmentRepository;
+import com.bookranker.assignment.repository.AssignmentRunRepository;
 import com.bookranker.auth.model.Teacher;
 import com.bookranker.auth.repository.TeacherRepository;
 import com.bookranker.books.dto.BookResponse;
@@ -11,8 +13,6 @@ import com.bookranker.classperiods.dto.CreateClassPeriodResponse;
 import com.bookranker.classperiods.dto.UpdateClassPeriodRequest;
 import com.bookranker.classperiods.model.ClassPeriod;
 import com.bookranker.classperiods.repository.ClassPeriodRepository;
-import com.bookranker.assignment.repository.AssignmentRepository;
-import com.bookranker.assignment.repository.AssignmentRunRepository;
 import com.bookranker.rankings.repository.RankingRepository;
 import com.bookranker.students.dto.StudentResponse;
 import com.bookranker.students.repository.StudentRepository;
@@ -43,8 +43,7 @@ public class ClassPeriodService {
       RankingRepository rankingRepository,
       StudentRepository studentRepository,
       AssignmentRepository assignmentRepository,
-      AssignmentRunRepository assignmentRunRepository
-  ) {
+      AssignmentRunRepository assignmentRunRepository) {
     this.classPeriodRepository = classPeriodRepository;
     this.teacherRepository = teacherRepository;
     this.rankingRepository = rankingRepository;
@@ -54,7 +53,8 @@ public class ClassPeriodService {
   }
 
   @Transactional
-  public CreateClassPeriodResponse createClassPeriod(CreateClassPeriodRequest request, String teacherEmail) {
+  public CreateClassPeriodResponse createClassPeriod(
+      CreateClassPeriodRequest request, String teacherEmail) {
     Teacher teacher = findTeacherByEmail(teacherEmail);
     ClassPeriod classPeriod = new ClassPeriod();
     classPeriod.setTeacher(teacher);
@@ -70,13 +70,11 @@ public class ClassPeriodService {
     Teacher teacher = findTeacherByEmail(teacherEmail);
     return new ClassPeriodsResponse(
         classPeriodRepository.findByTeacher_EmailOrderByCreatedAtDesc(teacher.getEmail()).stream()
-            .map(classPeriod -> new ClassPeriodSummaryResponse(
-                classPeriod.getId(),
-                classPeriod.getName(),
-                classPeriod.getJoinCode()
-            ))
-            .toList()
-    );
+            .map(
+                classPeriod ->
+                    new ClassPeriodSummaryResponse(
+                        classPeriod.getId(), classPeriod.getName(), classPeriod.getJoinCode()))
+            .toList());
   }
 
   @Transactional(readOnly = true)
@@ -94,16 +92,12 @@ public class ClassPeriodService {
             .toList(),
         classPeriod.getStudents().stream()
             .map(student -> new StudentResponse(student.getId(), student.getUsername()))
-            .toList()
-    );
+            .toList());
   }
 
   @Transactional
   public ClassPeriodSummaryResponse updateClassPeriod(
-      String classPeriodId,
-      UpdateClassPeriodRequest request,
-      String teacherEmail
-  ) {
+      String classPeriodId, UpdateClassPeriodRequest request, String teacherEmail) {
     ClassPeriod classPeriod = findOwnedClassPeriod(classPeriodId, teacherEmail);
     classPeriod.setName(request.name());
 
@@ -112,17 +106,13 @@ public class ClassPeriodService {
       if (request.minimumRankingCount() > bookCount) {
         throw new ResponseStatusException(
             HttpStatus.BAD_REQUEST,
-            "Minimum ranking count cannot exceed number of books in the class"
-        );
+            "Minimum ranking count cannot exceed number of books in the class");
       }
       classPeriod.setMinimumRankingCount(request.minimumRankingCount());
     }
 
     return new ClassPeriodSummaryResponse(
-        classPeriod.getId(),
-        classPeriod.getName(),
-        classPeriod.getJoinCode()
-    );
+        classPeriod.getId(), classPeriod.getName(), classPeriod.getJoinCode());
   }
 
   @Transactional
@@ -145,11 +135,15 @@ public class ClassPeriodService {
 
   @Transactional(readOnly = true)
   public ClassPeriod findOwnedClassPeriod(String classPeriodId, String teacherEmail) {
-    ClassPeriod classPeriod = classPeriodRepository.findById(classPeriodId)
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Class period not found"));
+    ClassPeriod classPeriod =
+        classPeriodRepository
+            .findById(classPeriodId)
+            .orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Class period not found"));
 
     if (!classPeriod.getTeacher().getEmail().equals(teacherEmail)) {
-      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Class period does not belong to teacher");
+      throw new ResponseStatusException(
+          HttpStatus.FORBIDDEN, "Class period does not belong to teacher");
     }
 
     return classPeriod;
@@ -157,8 +151,10 @@ public class ClassPeriodService {
 
   @Transactional(readOnly = true)
   public ClassPeriod findByJoinCode(String joinCode) {
-    return classPeriodRepository.findByJoinCode(normalizeJoinCode(joinCode))
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Class period not found"));
+    return classPeriodRepository
+        .findByJoinCode(normalizeJoinCode(joinCode))
+        .orElseThrow(
+            () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Class period not found"));
   }
 
   public int effectiveMinimumRankingCount(ClassPeriod classPeriod) {
@@ -173,8 +169,10 @@ public class ClassPeriodService {
   }
 
   private Teacher findTeacherByEmail(String teacherEmail) {
-    return teacherRepository.findByEmail(teacherEmail)
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Teacher not found"));
+    return teacherRepository
+        .findByEmail(teacherEmail)
+        .orElseThrow(
+            () -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Teacher not found"));
   }
 
   private String generateUniqueJoinCode() {

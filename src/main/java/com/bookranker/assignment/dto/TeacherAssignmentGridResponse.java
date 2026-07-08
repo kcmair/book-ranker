@@ -7,8 +7,6 @@ import java.util.List;
 @Schema(description = "Authenticated teacher spreadsheet-shaped assignment grid")
 public record TeacherAssignmentGridResponse(
     @ArraySchema(schema = @Schema(description = "Class column"))
-    List<TeacherAssignmentGridColumnResponse> columns,
+        List<TeacherAssignmentGridColumnResponse> columns,
     @ArraySchema(schema = @Schema(description = "Grid row"))
-    List<TeacherAssignmentGridRowResponse> rows
-) {
-}
+        List<TeacherAssignmentGridRowResponse> rows) {}

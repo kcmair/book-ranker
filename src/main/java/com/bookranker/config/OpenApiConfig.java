@@ -16,16 +16,17 @@ public class OpenApiConfig {
   @Bean
   public OpenAPI bookRankerOpenApi() {
     return new OpenAPI()
-        .info(new Info()
-            .title("BookRanker API")
-            .version("1.0.0"))
-        .components(new Components()
-            .addSecuritySchemes(BEARER_AUTH, new SecurityScheme()
-                .name(BEARER_AUTH)
-                .type(SecurityScheme.Type.HTTP)
-                .scheme("bearer")
-                .bearerFormat("JWT")
-                .description("Paste a teacher JWT from POST /api/teachers/login.")))
+        .info(new Info().title("BookRanker API").version("1.0.0"))
+        .components(
+            new Components()
+                .addSecuritySchemes(
+                    BEARER_AUTH,
+                    new SecurityScheme()
+                        .name(BEARER_AUTH)
+                        .type(SecurityScheme.Type.HTTP)
+                        .scheme("bearer")
+                        .bearerFormat("JWT")
+                        .description("Paste a teacher JWT from POST /api/teachers/login.")))
         .addSecurityItem(new SecurityRequirement().addList(BEARER_AUTH));
   }
 }

@@ -8,8 +8,7 @@ public record AssignmentResult(
     Set<ClassState.Student> unassignedStudents,
     int totalCost,
     double satisfactionScore,
-    SatisfactionDistribution satisfactionDistribution
-) {
+    SatisfactionDistribution satisfactionDistribution) {
 
   public AssignmentResult {
     assignments = Map.copyOf(assignments);
@@ -17,9 +16,5 @@ public record AssignmentResult(
   }
 
   public record SatisfactionDistribution(
-      int firstChoiceCount,
-      int topThreeCount,
-      int worseThanThirdCount
-  ) {
-  }
+      int firstChoiceCount, int topThreeCount, int worseThanThirdCount) {}
 }

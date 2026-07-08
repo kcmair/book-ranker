@@ -16,21 +16,18 @@ import org.springframework.web.server.ResponseStatusException;
 @SpringBootTest
 class AuthServiceTests {
 
-  @Autowired
-  private AuthService authService;
+  @Autowired private AuthService authService;
 
-  @Autowired
-  private TeacherRepository teacherRepository;
+  @Autowired private TeacherRepository teacherRepository;
 
-  @Autowired
-  private PasswordEncoder passwordEncoder;
+  @Autowired private PasswordEncoder passwordEncoder;
 
-  @Autowired
-  private JwtService jwtService;
+  @Autowired private JwtService jwtService;
 
   @Test
   void registerStoresHashedPassword() {
-    var response = authService.register(new RegisterTeacherRequest("teacher@example.com", "password123"));
+    var response =
+        authService.register(new RegisterTeacherRequest("teacher@example.com", "password123"));
 
     Teacher teacher = teacherRepository.findById(response.teacherId()).orElseThrow();
     assertThat(teacher.getEmail()).isEqualTo("teacher@example.com");
@@ -52,7 +49,8 @@ class AuthServiceTests {
   void loginRejectsInvalidCredentials() {
     authService.register(new RegisterTeacherRequest("reject@example.com", "password123"));
 
-    assertThatThrownBy(() -> authService.login(new LoginRequest("reject@example.com", "wrong-password")))
+    assertThatThrownBy(
+            () -> authService.login(new LoginRequest("reject@example.com", "wrong-password")))
         .isInstanceOf(ResponseStatusException.class);
   }
 }

@@ -19,10 +19,7 @@ public class AuthService {
   private final JwtService jwtService;
 
   public AuthService(
-      TeacherRepository teacherRepository,
-      PasswordEncoder passwordEncoder,
-      JwtService jwtService
-  ) {
+      TeacherRepository teacherRepository, PasswordEncoder passwordEncoder, JwtService jwtService) {
     this.teacherRepository = teacherRepository;
     this.passwordEncoder = passwordEncoder;
     this.jwtService = jwtService;
@@ -44,8 +41,11 @@ public class AuthService {
 
   public LoginResponse login(LoginRequest request) {
     String email = normalizeEmail(request.email());
-    Teacher teacher = teacherRepository.findByEmail(email)
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials"));
+    Teacher teacher =
+        teacherRepository
+            .findByEmail(email)
+            .orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials"));
 
     if (!passwordEncoder.matches(request.password(), teacher.getPasswordHash())) {
       throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");

@@ -21,10 +21,9 @@ import lombok.Setter;
 @Table(
     name = "rankings",
     uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"student_id", "book_id"}),
-        @UniqueConstraint(columnNames = {"student_id", "rank_value"})
-    }
-)
+      @UniqueConstraint(columnNames = {"student_id", "book_id"}),
+      @UniqueConstraint(columnNames = {"student_id", "rank_value"})
+    })
 @Getter
 @Setter
 @NoArgsConstructor
