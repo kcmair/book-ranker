@@ -1,11 +1,34 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  closestCenter,
+  DndContext,
+  type DragEndEvent,
+  KeyboardSensor,
+  PointerSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
+  AlertTriangle,
+  ArrowUpDown,
   BarChart3,
   BookOpen,
   Check,
+  CheckCircle2,
   ClipboardList,
   Copy,
   Edit3,
+  GripVertical,
   Loader2,
   LogIn,
   Plus,
@@ -13,9 +36,10 @@ import {
   Send,
   Trash2,
   UserPlus,
-  Users
+  Users,
+  X
 } from "lucide-react";
-import { api } from "./api/client";
+import { ApiRequestError, api } from "./api/client";
 import type {
   AssignmentResults,
   AssignmentRun,
@@ -29,7 +53,7 @@ import type {
 
 type View = "classes" | "books" | "results";
 type AuthMode = "signup" | "login";
-type Notice = { kind: "success" | "error"; message: string } | null;
+type Notice = { kind: "success" | "error"; message: string; details?: string[] } | null;
 type Confirmation = {
   title: string;
   message: string;
@@ -41,6 +65,8 @@ type TeacherClassSummary = {
   name: string;
   joinCode: string;
 };
+type AssignmentSortKey = "student" | "book";
+type SortDirection = "asc" | "desc";
 
 const storedToken = localStorage.getItem("bookranker.teacherToken") ?? "";
 const storedClassId = localStorage.getItem("bookranker.classId") ?? "";
@@ -231,7 +257,7 @@ function LoggedOutLanding({
         </article>
       </section>
 
-      <NoticeBanner notice={notice} />
+      <NoticeModal notice={notice} onDismiss={() => setNotice(null)} />
     </main>
   );
 }
@@ -422,7 +448,7 @@ function TeacherLanding(props: TeacherLandingProps) {
         </Panel>
       )}
 
-      <NoticeBanner notice={notice} />
+      <NoticeModal notice={notice} onDismiss={() => setNotice(null)} />
       <ConfirmationDialog confirmation={confirmation} onCancel={() => setConfirmation(null)} />
     </section>
   );
@@ -592,7 +618,6 @@ function BooksView(props: BooksViewProps) {
       await navigator.clipboard.writeText(studentUrl);
       setCopiedStudentUrl(true);
       window.setTimeout(() => setCopiedStudentUrl(false), 1400);
-      setNotice({ kind: "success", message: "Student URL copied." });
     } catch {
       setNotice({ kind: "error", message: "Copy failed. Select the URL and copy it manually." });
     }
@@ -644,6 +669,9 @@ function BooksView(props: BooksViewProps) {
             </div>
           </label>
         </div>
+        <div className="metric-grid one">
+          <CopyableMetric label="Student URL" value={studentUrl} copied={copiedStudentUrl} onCopy={copyStudentUrl} />
+        </div>
         <ActionButton
           icon={<Check size={16} />}
           label="Run assignment"
@@ -673,10 +701,6 @@ function BooksView(props: BooksViewProps) {
       </Panel>
 
       <Panel title="Students" icon={<ClipboardList size={18} />} wide>
-        <div className="metric-grid two">
-          <CopyableMetric label="Student URL" value={studentUrl} copied={copiedStudentUrl} onCopy={copyStudentUrl} />
-          <Metric label="Students" value={studentCount} valueTone={hasTooManyStudents ? "danger" : undefined} />
-        </div>
         <div className="section-actions">
           <ActionButton
             icon={<Users size={16} />}
@@ -693,7 +717,7 @@ function BooksView(props: BooksViewProps) {
         />
       </Panel>
 
-      <NoticeBanner notice={notice} />
+      <NoticeModal notice={notice} onDismiss={() => setNotice(null)} />
       <ConfirmationDialog confirmation={confirmation} onCancel={() => setConfirmation(null)} />
     </section>
   );
@@ -713,9 +737,28 @@ function StudentPoll() {
   const [notice, setNotice] = useState<Notice>(null);
   const [loading, setLoading] = useState("");
   const [status, setStatus] = useState<StudentStatus | null>(null);
-  const [rankings, setRankings] = useState<Record<string, number>>({});
+  const [rankedBookIds, setRankedBookIds] = useState<string[]>([]);
   const [existingMember, setExistingMember] = useState(false);
   const hasPreviousRankings = Boolean(status && status.rankCount > 0);
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 6 }
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates
+    })
+  );
+  const availableBooks = useMemo(
+    () => books.filter((book) => !rankedBookIds.includes(book.id)),
+    [books, rankedBookIds]
+  );
+  const rankedBooks = useMemo(
+    () =>
+      rankedBookIds
+        .map((bookId) => books.find((book) => book.id === bookId))
+        .filter((book): book is Book => Boolean(book)),
+    [books, rankedBookIds]
+  );
 
   useEffect(() => {
     let active = true;
@@ -760,20 +803,14 @@ function StudentPoll() {
       setStatus(nextStatus);
       setBooks(bookResponse.books);
       setMinimumRankingCount(bookResponse.minimumRankingCount ?? bookResponse.books.length);
-      setRankings({});
+      setRankedBookIds([]);
       setExistingMember(response.existingMember);
-      setNotice({
-        kind: "success",
-        message: response.existingMember ? "Existing class membership found." : "Joined class."
-      });
     });
   }
 
   async function submitRankings() {
     return withNotice(setLoading, setNotice, "rankings", async () => {
-      const payload: RankingItem[] = Object.entries(rankings)
-        .filter(([, rank]) => rank > 0)
-        .map(([bookId, rank]) => ({ bookId, rank }));
+      const payload: RankingItem[] = rankedBookIds.map((bookId, index) => ({ bookId, rank: index + 1 }));
       if (payload.length < minimumRankingCount) {
         setNotice({ kind: "error", message: `Rank at least ${minimumRankingCount} books before submitting.` });
         return;
@@ -783,6 +820,44 @@ function StudentPoll() {
       setStatus(nextStatus);
       setNotice({ kind: "success", message: "Rankings submitted." });
     });
+  }
+
+  function handleRankingDragEnd(event: DragEndEvent) {
+    const activeBookId = String(event.active.id);
+    const overId = event.over?.id ? String(event.over.id) : "";
+
+    if (!overId) {
+      return;
+    }
+
+    setRankedBookIds((currentRankedBookIds) => {
+      const activeIndex = currentRankedBookIds.indexOf(activeBookId);
+      const overIndex = currentRankedBookIds.indexOf(overId);
+
+      if (activeIndex >= 0 && overIndex >= 0) {
+        return arrayMove(currentRankedBookIds, activeIndex, overIndex);
+      }
+
+      if (activeIndex >= 0 || !books.some((book) => book.id === activeBookId)) {
+        return currentRankedBookIds;
+      }
+
+      if (overId === "ranked-books-dropzone") {
+        return [...currentRankedBookIds, activeBookId];
+      }
+
+      if (overIndex >= 0) {
+        const nextRankedBookIds = [...currentRankedBookIds];
+        nextRankedBookIds.splice(overIndex, 0, activeBookId);
+        return nextRankedBookIds;
+      }
+
+      return currentRankedBookIds;
+    });
+  }
+
+  function removeRankedBook(bookId: string) {
+    setRankedBookIds((currentRankedBookIds) => currentRankedBookIds.filter((rankedBookId) => rankedBookId !== bookId));
   }
 
   return (
@@ -849,27 +924,26 @@ function StudentPoll() {
               </div>
             )}
             <div className="metric-grid two">
-              <Metric label="Required" value={minimumRankingCount} />
               <Metric label="Books" value={books.length} />
+              <Metric label="Rankings required" value={minimumRankingCount} />
             </div>
-            <div className="ranking-list">
-              {books.map((book) => (
-                <label className="ranking-row" key={book.id}>
-                  <span>
-                    <strong>{book.title}</strong>
-                    <small>Capacity {book.capacity}</small>
-                  </span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={books.length}
-                    value={rankings[book.id] ?? ""}
-                    onChange={(event) => setRankings({ ...rankings, [book.id]: Number(event.target.value) })}
-                    aria-label={`Rank for ${book.title}`}
-                  />
-                </label>
-              ))}
-            </div>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleRankingDragEnd}>
+              <div className="ranking-board">
+                <div className="ranking-column">
+                  <div className="ranking-column-heading">
+                    <h3>Book list</h3>
+                    <span>{availableBooks.length}</span>
+                  </div>
+                  <div className="ranking-list">
+                    {availableBooks.length === 0 && <p className="empty-state">All books are ranked.</p>}
+                    {availableBooks.map((book) => (
+                      <DraggableBookCard book={book} key={book.id} />
+                    ))}
+                  </div>
+                </div>
+                <RankingDropZone books={rankedBooks} onRemove={removeRankedBook} />
+              </div>
+            </DndContext>
             <ActionButton
               icon={<Check size={16} />}
               label={existingMember || hasPreviousRankings ? "Submit revised rankings" : "Submit rankings"}
@@ -889,7 +963,7 @@ function StudentPoll() {
           </Panel>
         )}
 
-        <NoticeBanner notice={notice} />
+        <NoticeModal notice={notice} onDismiss={() => setNotice(null)} />
       </section>
     </main>
   );
@@ -909,6 +983,10 @@ function ResultsView(props: ResultsViewProps) {
   const [history, setHistory] = useState<AssignmentRun[]>([]);
   const [notice, setNotice] = useState<Notice>(null);
   const [loading, setLoading] = useState("");
+  const [assignmentSort, setAssignmentSort] = useState<{
+    key: AssignmentSortKey;
+    direction: SortDirection;
+  }>({ key: "student", direction: "asc" });
 
   const bookNames = useMemo(
     () => new Map((props.classPeriod?.books ?? []).map((book) => [book.id, book.title])),
@@ -926,6 +1004,39 @@ function ResultsView(props: ResultsViewProps) {
     const assignedStudentIds = new Set(props.latestAssignment.results.map((result) => result.studentId));
     return (props.classPeriod?.students ?? []).filter((student) => !assignedStudentIds.has(student.id));
   }, [props.latestAssignment, props.classPeriod?.students]);
+  const assignmentRows = useMemo(() => {
+    const rows = [
+      ...(props.latestAssignment?.results ?? []).map((result) => ({
+        id: `${result.studentId}-${result.bookId}`,
+        student: studentNames.get(result.studentId) ?? result.studentId,
+        book: bookNames.get(result.bookId) ?? result.bookId,
+        unassigned: false
+      })),
+      ...unassignedStudents.map((student) => ({
+        id: `${student.id}-unassigned`,
+        student: student.username,
+        book: "Unassigned",
+        unassigned: true
+      }))
+    ];
+
+    return [...rows].sort((left, right) => {
+      const primaryCompare = left[assignmentSort.key].localeCompare(right[assignmentSort.key], undefined, {
+        sensitivity: "base"
+      });
+      const stableCompare = left.student.localeCompare(right.student, undefined, { sensitivity: "base" });
+      const compare = primaryCompare || stableCompare;
+
+      return assignmentSort.direction === "asc" ? compare : -compare;
+    });
+  }, [assignmentSort, bookNames, props.latestAssignment?.results, studentNames, unassignedStudents]);
+
+  function toggleAssignmentSort(key: AssignmentSortKey) {
+    setAssignmentSort((currentSort) => ({
+      key,
+      direction: currentSort.key === key && currentSort.direction === "asc" ? "desc" : "asc"
+    }));
+  }
 
   async function refreshResults() {
     return withNotice(setLoading, setNotice, "results", async () => {
@@ -937,7 +1048,6 @@ function ResultsView(props: ResultsViewProps) {
       props.onClassPeriod(details);
       props.onAssignment(latest);
       setHistory(runs.runs);
-      setNotice({ kind: "success", message: "Results refreshed." });
     });
   }
 
@@ -970,21 +1080,29 @@ function ResultsView(props: ResultsViewProps) {
         <table>
           <thead>
             <tr>
-              <th>Student</th>
-              <th>Book</th>
+              <th>
+                <SortButton
+                  label="Student"
+                  active={assignmentSort.key === "student"}
+                  direction={assignmentSort.direction}
+                  onClick={() => toggleAssignmentSort("student")}
+                />
+              </th>
+              <th>
+                <SortButton
+                  label="Book"
+                  active={assignmentSort.key === "book"}
+                  direction={assignmentSort.direction}
+                  onClick={() => toggleAssignmentSort("book")}
+                />
+              </th>
             </tr>
           </thead>
           <tbody>
-            {(props.latestAssignment?.results ?? []).map((result) => (
-              <tr key={`${result.studentId}-${result.bookId}`}>
-                <td>{studentNames.get(result.studentId) ?? result.studentId}</td>
-                <td>{bookNames.get(result.bookId) ?? result.bookId}</td>
-              </tr>
-            ))}
-            {unassignedStudents.map((student) => (
-              <tr key={`${student.id}-unassigned`}>
-                <td>{student.username}</td>
-                <td className="danger-text">Unassigned</td>
+            {assignmentRows.map((row) => (
+              <tr key={row.id}>
+                <td>{row.student}</td>
+                <td className={row.unassigned ? "danger-text" : undefined}>{row.book}</td>
               </tr>
             ))}
           </tbody>
@@ -1016,7 +1134,7 @@ function ResultsView(props: ResultsViewProps) {
         </table>
       </Panel>
 
-      <NoticeBanner notice={notice} />
+      <NoticeModal notice={notice} onDismiss={() => setNotice(null)} />
     </section>
   );
 }
@@ -1066,6 +1184,109 @@ function Metric({ label, value, valueTone }: { label: string; value: string | nu
     <div className="metric">
       <span>{label}</span>
       <strong className={valueTone === "danger" ? "danger-text" : undefined}>{value}</strong>
+    </div>
+  );
+}
+
+function SortButton({
+  label,
+  active,
+  direction,
+  onClick
+}: {
+  label: string;
+  active: boolean;
+  direction: SortDirection;
+  onClick: () => void;
+}) {
+  return (
+    <button type="button" className={`sort-button ${active ? "active" : ""}`} onClick={onClick}>
+      <span>{label}</span>
+      <ArrowUpDown size={14} />
+      {active && <small>{direction === "asc" ? "A-Z" : "Z-A"}</small>}
+    </button>
+  );
+}
+
+function DraggableBookCard({ book }: { book: Book }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: book.id });
+  const style = {
+    transform: CSS.Translate.toString(transform)
+  };
+
+  return (
+    <button
+      type="button"
+      className={`ranking-card ${isDragging ? "dragging" : ""}`}
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+    >
+      <GripVertical size={17} />
+      <span>
+        <strong>{book.title}</strong>
+        <small>Capacity {book.capacity}</small>
+      </span>
+    </button>
+  );
+}
+
+function RankingDropZone({ books, onRemove }: { books: Book[]; onRemove: (bookId: string) => void }) {
+  const { setNodeRef, isOver } = useDroppable({ id: "ranked-books-dropzone" });
+
+  return (
+    <div className={`ranking-column ranking-dropzone ${isOver ? "over" : ""}`} ref={setNodeRef}>
+      <div className="ranking-column-heading">
+        <h3>Ranking</h3>
+        <span>{books.length}</span>
+      </div>
+      <SortableContext items={books.map((book) => book.id)} strategy={verticalListSortingStrategy}>
+        <div className="ranking-list ranked">
+          {books.length === 0 && <p className="empty-state">Drag books here in order from highest to lowest.</p>}
+          {books.map((book, index) => (
+            <SortableRankedBookCard book={book} key={book.id} rank={index + 1} onRemove={onRemove} />
+          ))}
+        </div>
+      </SortableContext>
+    </div>
+  );
+}
+
+function SortableRankedBookCard({
+  book,
+  rank,
+  onRemove
+}: {
+  book: Book;
+  rank: number;
+  onRemove: (bookId: string) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: book.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition
+  };
+
+  return (
+    <div className={`ranking-card ranked ${isDragging ? "dragging" : ""}`} ref={setNodeRef} style={style}>
+      <button
+        type="button"
+        className="ranking-drag-handle"
+        {...listeners}
+        {...attributes}
+        aria-label={`Move ${book.title}`}
+      >
+        <GripVertical size={17} />
+      </button>
+      <span className="ranking-position">{rank}</span>
+      <span>
+        <strong>{book.title}</strong>
+        <small>Capacity {book.capacity}</small>
+      </span>
+      <button type="button" className="ranking-remove" onClick={() => onRemove(book.id)}>
+        Remove
+      </button>
     </div>
   );
 }
@@ -1326,12 +1547,45 @@ function EditableStudentTable({
   );
 }
 
-function NoticeBanner({ notice }: { notice: Notice }) {
+function NoticeModal({ notice, onDismiss }: { notice: Notice; onDismiss: () => void }) {
   if (!notice) {
     return null;
   }
 
-  return <div className={`notice ${notice.kind}`}>{notice.message}</div>;
+  const title = notice.kind === "success" ? "Success" : "Something went wrong";
+  const icon = notice.kind === "success" ? <CheckCircle2 size={22} /> : <AlertTriangle size={22} />;
+
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <div
+        className={`notice-dialog ${notice.kind}`}
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="notice-dialog-title"
+      >
+        <button type="button" className="icon-button notice-close" aria-label="Dismiss message" onClick={onDismiss}>
+          <X size={17} />
+        </button>
+        <div className="notice-heading">
+          {icon}
+          <h2 id="notice-dialog-title">{title}</h2>
+        </div>
+        <p>{notice.message}</p>
+        {notice.details && notice.details.length > 0 && (
+          <ul className="notice-details">
+            {notice.details.map((detail, index) => (
+              <li key={`${detail}-${index}`}>{detail}</li>
+            ))}
+          </ul>
+        )}
+        <div className="confirm-actions">
+          <button type="button" onClick={onDismiss}>
+            Dismiss
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function ConfirmationDialog({ confirmation, onCancel }: { confirmation: Confirmation; onCancel: () => void }) {
@@ -1371,10 +1625,25 @@ async function withNotice(
   try {
     await task();
   } catch (error) {
-    setNotice({ kind: "error", message: error instanceof Error ? error.message : "Request failed." });
+    setNotice(noticeFromError(error));
   } finally {
     setLoading("");
   }
+}
+
+function noticeFromError(error: unknown): Notice {
+  if (error instanceof ApiRequestError) {
+    return {
+      kind: "error",
+      message: error.message,
+      details: error.details
+    };
+  }
+
+  return {
+    kind: "error",
+    message: error instanceof Error ? error.message : "Request failed."
+  };
 }
 
 function formatPercent(value: number | undefined) {
