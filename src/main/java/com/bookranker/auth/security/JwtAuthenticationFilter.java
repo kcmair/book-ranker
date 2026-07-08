@@ -28,10 +28,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
   @Override
   protected void doFilterInternal(
-      HttpServletRequest request,
-      HttpServletResponse response,
-      FilterChain filterChain
-  ) throws ServletException, IOException {
+      HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+      throws ServletException, IOException {
     String authorizationHeader = request.getHeader("Authorization");
 
     if (authorizationHeader == null || !authorizationHeader.startsWith(BEARER_PREFIX)) {
@@ -41,13 +39,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     String token = authorizationHeader.substring(BEARER_PREFIX.length());
     try {
-      if (jwtService.isValid(token) && SecurityContextHolder.getContext().getAuthentication() == null) {
+      if (jwtService.isValid(token)
+          && SecurityContextHolder.getContext().getAuthentication() == null) {
         String subject = jwtService.getSubject(token);
-        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-            subject,
-            null,
-            List.of(new SimpleGrantedAuthority("ROLE_TEACHER"))
-        );
+        UsernamePasswordAuthenticationToken authentication =
+            new UsernamePasswordAuthenticationToken(
+                subject, null, List.of(new SimpleGrantedAuthority("ROLE_TEACHER")));
         authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
         SecurityContextHolder.getContext().setAuthentication(authentication);
       }

@@ -26,17 +26,22 @@ public class PublicAssignmentGridController {
   @GetMapping
   @Operation(
       summary = "Get public class assignment grid",
-      description = "Returns a public class-specific view of the latest completed assignment run for the class "
-          + "identified by the supplied join code. This endpoint is public and does not use bearer authentication."
-  )
-  @ApiResponses(value = {
-      @ApiResponse(responseCode = "200", description = "Public class assignment grid returned successfully"),
-      @ApiResponse(responseCode = "404", description = "Join code not found")
-  })
+      description =
+          "Returns a public class-specific view of the latest completed assignment run for the class "
+              + "identified by the supplied join code. This endpoint is public and does not use bearer authentication.")
+  @ApiResponses(
+      value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Public class assignment grid returned successfully"),
+        @ApiResponse(responseCode = "404", description = "Join code not found")
+      })
   public PublicClassAssignmentGridResponse getPublicAssignmentGrid(
-      @Parameter(description = "Class join code used to locate the public class assignment grid", required = true)
-      @PathVariable String joinCode
-  ) {
+      @Parameter(
+              description = "Class join code used to locate the public class assignment grid",
+              required = true)
+          @PathVariable
+          String joinCode) {
     return publicAssignmentGridService.getPublicClassGrid(joinCode);
   }
 }

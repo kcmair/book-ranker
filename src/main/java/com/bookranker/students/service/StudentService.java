@@ -30,8 +30,7 @@ public class StudentService {
       StudentRepository studentRepository,
       ClassPeriodService classPeriodService,
       BookRepository bookRepository,
-      RankingRepository rankingRepository
-  ) {
+      RankingRepository rankingRepository) {
     this.studentRepository = studentRepository;
     this.classPeriodService = classPeriodService;
     this.bookRepository = bookRepository;
@@ -42,15 +41,19 @@ public class StudentService {
   public JoinClassPeriodResponse joinClassPeriod(JoinClassPeriodRequest request) {
     ClassPeriod classPeriod = classPeriodService.findByJoinCode(request.joinCode());
     String username = request.username().trim();
-    boolean existingMember = studentRepository.findByClassPeriodIdAndUsername(classPeriod.getId(), username).isPresent();
+    boolean existingMember =
+        studentRepository.findByClassPeriodIdAndUsername(classPeriod.getId(), username).isPresent();
 
-    Student student = studentRepository.findByClassPeriodIdAndUsername(classPeriod.getId(), username)
-        .orElseGet(() -> {
-          Student newStudent = new Student();
-          newStudent.setClassPeriod(classPeriod);
-          newStudent.setUsername(username);
-          return studentRepository.save(newStudent);
-        });
+    Student student =
+        studentRepository
+            .findByClassPeriodIdAndUsername(classPeriod.getId(), username)
+            .orElseGet(
+                () -> {
+                  Student newStudent = new Student();
+                  newStudent.setClassPeriod(classPeriod);
+                  newStudent.setUsername(username);
+                  return studentRepository.save(newStudent);
+                });
 
     return new JoinClassPeriodResponse(student.getId(), classPeriod.getId(), existingMember);
   }
@@ -60,34 +63,41 @@ public class StudentService {
     Student student = findStudent(studentId);
     long totalBooks = bookRepository.countByClassPeriodId(student.getClassPeriod().getId());
     long rankCount = rankingRepository.countByStudentId(studentId);
+    int minimumRankingCount =
+        classPeriodService.effectiveMinimumRankingCount(
+            student.getClassPeriod(), Math.toIntExact(totalBooks));
 
-    return new StudentStatusResponse(totalBooks > 0 && rankCount == totalBooks, rankCount, totalBooks);
+    return new StudentStatusResponse(
+        totalBooks > 0 && rankCount >= minimumRankingCount,
+        rankCount,
+        totalBooks,
+        minimumRankingCount);
   }
 
   @Transactional(readOnly = true)
   public BooksResponse getBooks(String studentId) {
     Student student = findStudent(studentId);
     return new BooksResponse(
+        student.getClassPeriod().getName(),
+        classPeriodService.effectiveMinimumRankingCount(student.getClassPeriod()),
         bookRepository.findByClassPeriodId(student.getClassPeriod().getId()).stream()
             .map(book -> new BookResponse(book.getId(), book.getTitle(), book.getCapacity()))
-            .toList()
-    );
+            .toList());
   }
 
   @Transactional
   public StudentResponse updateStudent(
-      String classPeriodId,
-      String studentId,
-      UpdateStudentRequest request,
-      String teacherEmail
-  ) {
+      String classPeriodId, String studentId, UpdateStudentRequest request, String teacherEmail) {
     Student student = findOwnedStudent(classPeriodId, studentId, teacherEmail);
     String username = request.username().trim();
-    studentRepository.findByClassPeriodIdAndUsername(classPeriodId, username)
+    studentRepository
+        .findByClassPeriodIdAndUsername(classPeriodId, username)
         .filter(existing -> !existing.getId().equals(studentId))
-        .ifPresent(existing -> {
-          throw new ResponseStatusException(HttpStatus.CONFLICT, "Student username already exists in class");
-        });
+        .ifPresent(
+            existing -> {
+              throw new ResponseStatusException(
+                  HttpStatus.CONFLICT, "Student username already exists in class");
+            });
 
     student.setUsername(username);
     return new StudentResponse(student.getId(), student.getUsername());
@@ -102,13 +112,15 @@ public class StudentService {
 
   @Transactional(readOnly = true)
   public Student findStudent(String studentId) {
-    return studentRepository.findById(studentId)
+    return studentRepository
+        .findById(studentId)
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Student not found"));
   }
 
   private Student findOwnedStudent(String classPeriodId, String studentId, String teacherEmail) {
     classPeriodService.findOwnedClassPeriod(classPeriodId, teacherEmail);
-    return studentRepository.findByIdAndClassPeriodId(studentId, classPeriodId)
+    return studentRepository
+        .findByIdAndClassPeriodId(studentId, classPeriodId)
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Student not found"));
   }
 }

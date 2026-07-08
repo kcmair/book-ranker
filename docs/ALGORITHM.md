@@ -8,7 +8,7 @@ This is a constrained optimization problem:
 
 * Each eligible student gets exactly one book when total capacity allows
 * Each book has a maximum capacity
-* Each student provides a full ranking of all books
+* Each eligible student provides at least the class's minimum number of ranked books
 * Goal: maximize total preference satisfaction
 
 ---
@@ -20,7 +20,8 @@ Given:
 * A set of students `S`
 * A set of books `B`
 * A capacity function `cap(b)` for each book
-* A ranking function `rank(s, b)` for each student-book pair
+* A ranking function `rank(s, b)` for ranked student-book pairs
+* A class minimum ranking count `minRankings`
 
 Find an assignment function for the maximum feasible set of eligible students:
 
@@ -196,11 +197,11 @@ Then:
 
 ---
 
-### 9.2 Missing rankings
+### 9.2 Rankings below the class minimum
 
-Students without full rankings:
+Students below the class minimum ranking count:
 
-* Excluded from graph
+* Excluded from graph only when their submitted ranking count is below `minRankings`
 * Reported in assignment run summary
 
 ---

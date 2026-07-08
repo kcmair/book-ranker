@@ -78,15 +78,13 @@ const liveClient = {
     request<{ classes: Pick<ClassPeriod, "id" | "name" | "joinCode">[] }>("/api/classes", "GET", { token }),
   createClassPeriod: (token: string, name: string) =>
     request<CreateClassPeriodResponse>("/api/classes", "POST", { token, body: { name } }),
-  getClassPeriod: (token: string, classId: string) =>
-    request<ClassPeriod>(`/api/classes/${classId}`, "GET", { token }),
-  updateClassPeriod: (token: string, classId: string, name: string) =>
+  getClassPeriod: (token: string, classId: string) => request<ClassPeriod>(`/api/classes/${classId}`, "GET", { token }),
+  updateClassPeriod: (token: string, classId: string, name: string, minimumRankingCount?: number) =>
     request<Pick<ClassPeriod, "id" | "name" | "joinCode">>(`/api/classes/${classId}`, "PATCH", {
       token,
-      body: { name }
+      body: { name, minimumRankingCount }
     }),
-  deleteClassPeriod: (token: string, classId: string) =>
-    request<void>(`/api/classes/${classId}`, "DELETE", { token }),
+  deleteClassPeriod: (token: string, classId: string) => request<void>(`/api/classes/${classId}`, "DELETE", { token }),
   addBook: (token: string, classId: string, title: string, capacity: number) =>
     request<{ bookId: string }>(`/api/classes/${classId}/books`, "POST", {
       token,
@@ -104,7 +102,10 @@ const liveClient = {
   joinClassPeriod: (joinCode: string, username: string) =>
     request<JoinClassPeriodResponse>("/api/classes/join", "POST", { body: { joinCode, username } }),
   getStudentBooks: (studentId: string) =>
-    request<{ className?: string; books: Book[] }>(`/api/students/${studentId}/books`, "GET"),
+    request<{ className?: string; minimumRankingCount?: number; books: Book[] }>(
+      `/api/students/${studentId}/books`,
+      "GET"
+    ),
   updateStudent: (token: string, classId: string, studentId: string, username: string) =>
     request<{ id: string; username: string }>(`/api/classes/${classId}/students/${studentId}`, "PATCH", {
       token,
@@ -112,12 +113,13 @@ const liveClient = {
     }),
   deleteStudent: (token: string, classId: string, studentId: string) =>
     request<void>(`/api/classes/${classId}/students/${studentId}`, "DELETE", { token }),
+  clearClassStudents: (token: string, classId: string) =>
+    request<void>(`/api/classes/${classId}/students`, "DELETE", { token }),
   submitRankings: (studentId: string, rankings: RankingItem[]) =>
     request<SubmitRankingsResponse>(`/api/students/${studentId}/rankings`, "POST", {
       body: { rankings }
     }),
-  getStudentStatus: (studentId: string) =>
-    request<StudentStatus>(`/api/students/${studentId}/status`, "GET"),
+  getStudentStatus: (studentId: string) => request<StudentStatus>(`/api/students/${studentId}/status`, "GET"),
   runAssignment: (token: string, classId: string) =>
     request<RunAssignmentResponse>(`/api/classes/${classId}/assign`, "POST", { token }),
   getLatestAssignment: (token: string, classId: string) =>
@@ -134,6 +136,8 @@ const mockClass: ClassPeriod = {
   id: "class-demo",
   name: "Period 3 Reading",
   joinCode: "RANK42",
+  minimumRankingCount: 3,
+  minimumRankingCountExplicit: false,
   books: [
     { id: "book-1", title: "A Wrinkle in Time", capacity: 3 },
     { id: "book-2", title: "The Hobbit", capacity: 4 },
@@ -193,7 +197,14 @@ const mockClient: typeof liveClient = {
     joinCode: name ? mockClass.joinCode : mockClass.joinCode
   }),
   getClassPeriod: async () => mockClass,
-  updateClassPeriod: async (_token, classId, name) => ({ id: classId, name, joinCode: mockClass.joinCode }),
+  updateClassPeriod: async (_token, classId, name, minimumRankingCount) => {
+    mockClass.name = name;
+    if (minimumRankingCount !== undefined) {
+      mockClass.minimumRankingCount = minimumRankingCount;
+      mockClass.minimumRankingCountExplicit = true;
+    }
+    return { id: classId, name, joinCode: mockClass.joinCode };
+  },
   deleteClassPeriod: async () => undefined,
   addBook: async () => ({ bookId: "book-new" }),
   getBooks: async () => ({ books: mockClass.books }),
@@ -205,14 +216,20 @@ const mockClient: typeof liveClient = {
     className: mockClass.name,
     existingMember: false
   }),
-  getStudentBooks: async () => ({ className: mockClass.name, books: mockClass.books }),
+  getStudentBooks: async () => ({
+    className: mockClass.name,
+    minimumRankingCount: mockClass.minimumRankingCount,
+    books: mockClass.books
+  }),
   updateStudent: async (_token, _classId, studentId, username) => ({ id: studentId, username }),
   deleteStudent: async () => undefined,
+  clearClassStudents: async () => undefined,
   submitRankings: async () => ({ status: "submitted" }),
   getStudentStatus: async () => ({
     submitted: true,
     rankCount: mockClass.books.length,
-    totalBooks: mockClass.books.length
+    totalBooks: mockClass.books.length,
+    minimumRankingCount: mockClass.minimumRankingCount
   }),
   runAssignment: async () => ({
     assignmentRunId: mockRun.runId,

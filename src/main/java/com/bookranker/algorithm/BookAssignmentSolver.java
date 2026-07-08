@@ -36,14 +36,10 @@ public class BookAssignmentSolver {
 
       for (int bookIndex = 0; bookIndex < books.size(); bookIndex++) {
         ClassState.Book book = books.get(bookIndex);
-        int rank = studentRankings.get(book);
+        int rank = studentRankings.getOrDefault(book, books.size() + 1);
         int cost = RankingCost.fromRank(rank);
-        MinCostFlowGraph.Edge edge = graph.addEdge(
-            studentOffset + studentIndex,
-            bookOffset + bookIndex,
-            1,
-            cost
-        );
+        MinCostFlowGraph.Edge edge =
+            graph.addEdge(studentOffset + studentIndex, bookOffset + bookIndex, 1, cost);
         studentBookEdges.add(new StudentBookEdge(student, book, rank, edge));
       }
     }
@@ -54,7 +50,8 @@ public class BookAssignmentSolver {
       graph.addEdge(bookOffset + bookIndex, sink, capacity, 0);
     }
 
-    MinCostFlowGraph.FlowResult flowResult = graph.minCostMaxFlow(source, sink, eligibleStudents.size());
+    MinCostFlowGraph.FlowResult flowResult =
+        graph.minCostMaxFlow(source, sink, eligibleStudents.size());
 
     Map<ClassState.Student, ClassState.Book> assignments = new LinkedHashMap<>();
     Map<ClassState.Student, Integer> assignedRanks = new HashMap<>();
@@ -73,15 +70,14 @@ public class BookAssignmentSolver {
         unassigned,
         flowResult.cost(),
         satisfactionScore(flowResult.cost(), assignments.size(), books.size()),
-        satisfactionDistribution(assignedRanks)
-    );
+        satisfactionDistribution(assignedRanks));
   }
 
   private List<ClassState.Student> eligibleStudents(ClassState classState) {
     List<ClassState.Student> eligible = new ArrayList<>();
     for (ClassState.Student student : classState.students()) {
       Map<ClassState.Book, Integer> studentRankings = classState.rankings().get(student);
-      if (studentRankings == null || !studentRankings.keySet().containsAll(classState.books())) {
+      if (studentRankings == null || studentRankings.size() < classState.minimumRankingCount()) {
         continue;
       }
       eligible.add(student);
@@ -94,13 +90,12 @@ public class BookAssignmentSolver {
       return assignmentCount == 0 ? 0.0 : 1.0;
     }
 
-    int maxPossibleCost = assignmentCount * (bookCount - 1);
-    return 1.0 - ((double) totalCost / maxPossibleCost);
+    int maxPossibleCost = assignmentCount * bookCount;
+    return Math.max(0.0, 1.0 - ((double) totalCost / maxPossibleCost));
   }
 
   private AssignmentResult.SatisfactionDistribution satisfactionDistribution(
-      Map<ClassState.Student, Integer> assignedRanks
-  ) {
+      Map<ClassState.Student, Integer> assignedRanks) {
     int firstChoice = 0;
     int topThree = 0;
     int worseThanThird = 0;
@@ -120,12 +115,7 @@ public class BookAssignmentSolver {
   }
 
   private record StudentBookEdge(
-      ClassState.Student student,
-      ClassState.Book book,
-      int rank,
-      MinCostFlowGraph.Edge edge
-  ) {
-  }
+      ClassState.Student student, ClassState.Book book, int rank, MinCostFlowGraph.Edge edge) {}
 
   private static final class MinCostFlowGraph {
     private final List<List<Edge>> adjacency;
@@ -164,9 +154,10 @@ public class BookAssignmentSolver {
         }
         distances[source] = 0;
 
-        PriorityQueue<NodeDistance> queue = new PriorityQueue<>(
-            Comparator.comparingInt(NodeDistance::distance).thenComparingInt(NodeDistance::node)
-        );
+        PriorityQueue<NodeDistance> queue =
+            new PriorityQueue<>(
+                Comparator.comparingInt(NodeDistance::distance)
+                    .thenComparingInt(NodeDistance::node));
         queue.add(new NodeDistance(source, 0));
 
         while (!queue.isEmpty()) {
@@ -224,11 +215,9 @@ public class BookAssignmentSolver {
       return new FlowResult(flow, cost);
     }
 
-    private record NodeDistance(int node, int distance) {
-    }
+    private record NodeDistance(int node, int distance) {}
 
-    record FlowResult(int flow, int cost) {
-    }
+    record FlowResult(int flow, int cost) {}
 
     static final class Edge {
       private final int to;

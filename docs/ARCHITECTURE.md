@@ -154,7 +154,8 @@ Represents a student's preference ordering.
 
 Rules:
 
-* Each student must submit a complete ranking of all books in a class
+* Each student must submit at least the class's minimum number of ranked books
+* The default minimum is the current number of books unless the teacher sets a lower minimum
 * Rank values must be unique per student
 
 ---
@@ -302,7 +303,7 @@ DTO naming conventions are defined in `IMPLEMENTATION_ALIGNMENT.md`.
 
 1. Student receives class join code
 2. Enters username
-3. Submits full ranking of books
+3. Submits at least the class's minimum number of ranked books
 4. Can update ranking until class is locked
 5. Receives assigned book after algorithm run
 
@@ -322,8 +323,8 @@ DTO naming conventions are defined in `IMPLEMENTATION_ALIGNMENT.md`.
 
 ## 12. Assignment Rules
 
-* Students must submit full rankings before assignment
-* Students without rankings are excluded from run
+* Students must submit at least the class's minimum number of ranked books before assignment
+* Students below the ranking minimum are excluded from run
 * Book capacities must not be exceeded
 * Each student receives exactly one book (if possible)
 
@@ -364,7 +365,7 @@ Standard API error format:
   "timestamp": "...",
   "status": 400,
   "error": "Validation Error",
-  "message": "Rankings must include all books",
+  "message": "Rankings must include at least the required minimum number of books",
   "path": "/api/rankings"
 }
 ```

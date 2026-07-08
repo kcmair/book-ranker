@@ -9,4 +9,6 @@ public interface AssignmentRepository extends JpaRepository<Assignment, String> 
   List<Assignment> findByAssignmentRunId(String assignmentRunId);
 
   List<Assignment> findByAssignmentRunIdIn(List<String> assignmentRunIds);
+
+  void deleteByAssignmentRunClassPeriodId(String classPeriodId);
 }

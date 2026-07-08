@@ -46,7 +46,7 @@ Base URL:
 {
   "status": 400,
   "error": "Validation Error",
-  "message": "Rankings must include all books in the class",
+  "message": "Rankings must include at least the required minimum number of books",
   "path": "/api/rankings"
 }
 ```
@@ -185,6 +185,8 @@ Response:
   "id": "uuid",
   "name": "English 12",
   "joinCode": "K9X42M",
+  "minimumRankingCount": 5,
+  "minimumRankingCountExplicit": false,
   "books": [],
   "students": []
 }
@@ -208,9 +210,12 @@ Request:
 
 ```json id="c5"
 {
-  "name": "English 12 Honors"
+  "name": "English 12 Honors",
+  "minimumRankingCount": 3
 }
 ```
+
+`minimumRankingCount` is optional. If omitted, the class defaults to requiring one vote per book and keeps that default as books are added. If provided, it must be at least `1` and cannot exceed the current number of books in the class.
 
 Response:
 
@@ -239,6 +244,42 @@ Authorization: Bearer <token>
 Response:
 
 ```text id="c7"
+204 No Content
+```
+
+---
+
+### 5.6 Clear Class Student Data
+
+```
+DELETE /api/classes/{classId}/students
+```
+
+Description:
+Clears a class period for a new year or semester while preserving the class period, join code, and books.
+
+Headers:
+
+```
+Authorization: Bearer <token>
+```
+
+Deleted data:
+
+* Students
+* Student rankings
+* Assignment runs
+* Assignment results
+
+Preserved data:
+
+* Class period
+* Join code
+* Books
+
+Response:
+
+```text id="c10"
 204 No Content
 ```
 
@@ -283,6 +324,8 @@ Response:
 
 ```json id="b3"
 {
+  "className": "English 12",
+  "minimumRankingCount": 3,
   "books": [
     {
       "id": "uuid",
@@ -406,8 +449,9 @@ Request:
 
 Rules:
 
-* Must include ALL books in class
+* Must include at least the class's minimum ranking count
 * Ranks must be unique and contiguous
+* Submitted ranking count cannot exceed the number of books in the class
 
 Response:
 
@@ -431,7 +475,8 @@ Response:
 {
   "submitted": true,
   "rankCount": 5,
-  "totalBooks": 5
+  "totalBooks": 5,
+  "minimumRankingCount": 5
 }
 ```
 
@@ -447,6 +492,8 @@ Response:
 
 ```json id="s6"
 {
+  "className": "English 12",
+  "minimumRankingCount": 5,
   "books": [
     {
       "id": "uuid",
@@ -731,8 +778,9 @@ Rules:
 
 ### Rankings
 
-* Must include all books in class
-* Rank must be 1..N with no duplicates
+* Must include at least the class's minimum ranking count
+* Rank must be 1..submitted ranking count with no duplicates
+* Submitted ranking count must not exceed the number of books in the class
 
 ### Books
 

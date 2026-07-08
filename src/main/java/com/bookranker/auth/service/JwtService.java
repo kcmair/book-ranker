@@ -19,9 +19,10 @@ public class JwtService {
   private final long expirationMillis;
 
   public JwtService(
-      @Value("${bookranker.jwt.secret:bookranker-local-development-secret-change-before-production}") String secret,
-      @Value("${bookranker.jwt.expiration-millis:86400000}") long expirationMillis
-  ) {
+      @Value(
+              "${bookranker.jwt.secret:bookranker-local-development-secret-change-before-production}")
+          String secret,
+      @Value("${bookranker.jwt.expiration-millis:86400000}") long expirationMillis) {
     this.signingKey = Keys.hmacShaKeyFor(sha256(secret));
     this.expirationMillis = expirationMillis;
   }
@@ -48,17 +49,12 @@ public class JwtService {
   }
 
   private Claims parseClaims(String token) {
-    return Jwts.parser()
-        .verifyWith(signingKey)
-        .build()
-        .parseSignedClaims(token)
-        .getPayload();
+    return Jwts.parser().verifyWith(signingKey).build().parseSignedClaims(token).getPayload();
   }
 
   private static byte[] sha256(String value) {
     try {
-      return MessageDigest.getInstance("SHA-256")
-          .digest(value.getBytes(StandardCharsets.UTF_8));
+      return MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
     } catch (NoSuchAlgorithmException e) {
       throw new IllegalStateException("SHA-256 is unavailable", e);
     }

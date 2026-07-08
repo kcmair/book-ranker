@@ -5,7 +5,5 @@ import jakarta.validation.constraints.NotBlank;
 
 @Schema(description = "Request to update a student")
 public record UpdateStudentRequest(
-    @Schema(description = "Updated student display username", example = "student123")
-    @NotBlank String username
-) {
-}
+    @Schema(description = "Updated student display username", example = "student123") @NotBlank
+        String username) {}

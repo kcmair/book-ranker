@@ -1,7 +1,7 @@
 package com.bookranker.auth.controller;
 
-import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.blankOrNullString;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -19,14 +19,16 @@ import org.springframework.test.web.servlet.MockMvc;
 @AutoConfigureMockMvc
 class TeacherAuthControllerTests {
 
-  @Autowired
-  private MockMvc mockMvc;
+  @Autowired private MockMvc mockMvc;
 
   @Test
   void registerReturnsTeacherId() throws Exception {
-    mockMvc.perform(post("/api/teachers/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("""
+    mockMvc
+        .perform(
+            post("/api/teachers/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
                 {
                   "email": "controller-register@example.com",
                   "password": "password123"
@@ -38,9 +40,12 @@ class TeacherAuthControllerTests {
 
   @Test
   void loginReturnsJwtToken() throws Exception {
-    mockMvc.perform(post("/api/teachers/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("""
+    mockMvc
+        .perform(
+            post("/api/teachers/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
                 {
                   "email": "controller-login@example.com",
                   "password": "password123"
@@ -48,9 +53,12 @@ class TeacherAuthControllerTests {
                 """))
         .andExpect(status().isOk());
 
-    mockMvc.perform(post("/api/teachers/login")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("""
+    mockMvc
+        .perform(
+            post("/api/teachers/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
                 {
                   "email": "controller-login@example.com",
                   "password": "password123"
@@ -62,13 +70,16 @@ class TeacherAuthControllerTests {
 
   @Test
   void corsPreflightAllowsLocalFrontend() throws Exception {
-    mockMvc.perform(options("/api/teachers/register")
-            .header("Origin", "http://localhost:5173")
-            .header("Access-Control-Request-Method", "POST")
-            .header("Access-Control-Request-Headers", "content-type,authorization"))
+    mockMvc
+        .perform(
+            options("/api/teachers/register")
+                .header("Origin", "http://localhost:5173")
+                .header("Access-Control-Request-Method", "POST")
+                .header("Access-Control-Request-Headers", "content-type,authorization"))
         .andExpect(status().isOk())
         .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:5173"))
-        .andExpect(header().string("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS"))
+        .andExpect(
+            header().string("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS"))
         .andExpect(header().string("Access-Control-Allow-Headers", "content-type, authorization"));
   }
 }

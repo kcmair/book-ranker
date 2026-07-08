@@ -40,8 +40,7 @@ public class AssignmentService {
       ClassPeriodService classPeriodService,
       ClassStateBuilder classStateBuilder,
       AssignmentRunRepository assignmentRunRepository,
-      AssignmentRepository assignmentRepository
-  ) {
+      AssignmentRepository assignmentRepository) {
     this.classPeriodService = classPeriodService;
     this.classStateBuilder = classStateBuilder;
     this.assignmentRunRepository = assignmentRunRepository;
@@ -73,15 +72,19 @@ public class AssignmentService {
         saved.getFirstChoiceCount(),
         saved.getTopThreeCount(),
         saved.getWorseThanThirdCount(),
-        saved.getUnassignedStudentCount()
-    );
+        saved.getUnassignedStudentCount());
   }
 
   @Transactional(readOnly = true)
-  public AssignmentResultsResponse getLatestAssignmentResults(String classPeriodId, String teacherEmail) {
+  public AssignmentResultsResponse getLatestAssignmentResults(
+      String classPeriodId, String teacherEmail) {
     classPeriodService.findOwnedClassPeriod(classPeriodId, teacherEmail);
-    AssignmentRun assignmentRun = assignmentRunRepository.findFirstByClassPeriodIdOrderByCreatedAtDesc(classPeriodId)
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Assignment run not found"));
+    AssignmentRun assignmentRun =
+        assignmentRunRepository
+            .findFirstByClassPeriodIdOrderByCreatedAtDesc(classPeriodId)
+            .orElseThrow(
+                () ->
+                    new ResponseStatusException(HttpStatus.NOT_FOUND, "Assignment run not found"));
 
     return new AssignmentResultsResponse(
         assignmentRun.getId(),
@@ -93,33 +96,32 @@ public class AssignmentService {
         assignmentRun.getUnassignedStudentCount(),
         assignmentRepository.findByAssignmentRunId(assignmentRun.getId()).stream()
             .sorted(Comparator.comparing(assignment -> assignment.getStudent().getId()))
-            .map(assignment -> new AssignmentResultItemResponse(
-                assignment.getStudent().getId(),
-                assignment.getBook().getId()
-            ))
-            .toList()
-    );
+            .map(
+                assignment ->
+                    new AssignmentResultItemResponse(
+                        assignment.getStudent().getId(), assignment.getBook().getId()))
+            .toList());
   }
 
   @Transactional(readOnly = true)
   public AssignmentHistoryResponse getAssignmentHistory(String classPeriodId, String teacherEmail) {
     classPeriodService.findOwnedClassPeriod(classPeriodId, teacherEmail);
 
-    List<AssignmentRunSummaryResponse> runs = assignmentRunRepository
-        .findByClassPeriodIdOrderByCreatedAtDesc(classPeriodId)
-        .stream()
-        .map(run -> new AssignmentRunSummaryResponse(
-            run.getId(),
-            run.getCreatedAt(),
-            run.getStatus().name(),
-            run.getTotalCost(),
-            run.getSatisfactionScore(),
-            run.getFirstChoiceCount(),
-            run.getTopThreeCount(),
-            run.getWorseThanThirdCount(),
-            run.getUnassignedStudentCount()
-        ))
-        .toList();
+    List<AssignmentRunSummaryResponse> runs =
+        assignmentRunRepository.findByClassPeriodIdOrderByCreatedAtDesc(classPeriodId).stream()
+            .map(
+                run ->
+                    new AssignmentRunSummaryResponse(
+                        run.getId(),
+                        run.getCreatedAt(),
+                        run.getStatus().name(),
+                        run.getTotalCost(),
+                        run.getSatisfactionScore(),
+                        run.getFirstChoiceCount(),
+                        run.getTopThreeCount(),
+                        run.getWorseThanThirdCount(),
+                        run.getUnassignedStudentCount()))
+            .toList();
 
     return new AssignmentHistoryResponse(runs);
   }
@@ -138,8 +140,7 @@ public class AssignmentService {
   private void persistAssignments(
       AssignmentRun assignmentRun,
       AssignmentResult result,
-      ClassStateBuilder.BuiltClassState builtClassState
-  ) {
+      ClassStateBuilder.BuiltClassState builtClassState) {
     Map<String, Student> studentsById = builtClassState.domainStudentsById();
     Map<String, Book> booksById = builtClassState.domainBooksById();
 

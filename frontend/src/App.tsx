@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BarChart3,
   BookOpen,
@@ -52,7 +52,9 @@ function getPollJoinCode() {
     return "";
   }
 
-  return decodeURIComponent(path.slice("/poll/".length).split("/")[0] ?? "").trim().toUpperCase();
+  return decodeURIComponent(path.slice("/poll/".length).split("/")[0] ?? "")
+    .trim()
+    .toUpperCase();
 }
 
 function buildPollUrl(joinCode: string | undefined) {
@@ -123,12 +125,7 @@ function App() {
         </button>
       </header>
 
-      {view === "classes" && (
-        <TeacherLanding
-          token={token}
-          onOpenClass={openClassBooks}
-        />
-      )}
+      {view === "classes" && <TeacherLanding token={token} onOpenClass={openClassBooks} />}
       {view === "books" && (
         <BooksView
           token={token}
@@ -197,9 +194,7 @@ function LoggedOutLanding({
         <div className="landing-copy">
           <p className="eyebrow">Class book assignments</p>
           <h1>Rank books, balance capacity, assign fairly.</h1>
-          <p>
-            Build a class reading list, collect student rankings, and run assignments from one teacher workspace.
-          </p>
+          <p>Build a class reading list, collect student rankings, and run assignments from one teacher workspace.</p>
         </div>
 
         <article className="auth-panel">
@@ -210,7 +205,12 @@ function LoggedOutLanding({
           <div className="form-grid">
             <label>
               Email
-              <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" autoComplete="email" />
+              <input
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                type="email"
+                autoComplete="email"
+              />
             </label>
             <label>
               Password
@@ -251,16 +251,16 @@ function TeacherLanding(props: TeacherLandingProps) {
   const [loading, setLoading] = useState("");
   const [confirmation, setConfirmation] = useState<Confirmation>(null);
 
-  useEffect(() => {
-    void refreshClasses();
-  }, [props.token]);
-
-  async function refreshClasses() {
+  const refreshClasses = useCallback(async () => {
     return withNotice(setLoading, setNotice, "classes", async () => {
       const response = await api.listClassPeriods(props.token);
       setClasses(response.classes);
     });
-  }
+  }, [props.token]);
+
+  useEffect(() => {
+    void refreshClasses();
+  }, [refreshClasses]);
 
   async function createClassPeriod() {
     return withNotice(setLoading, setNotice, "class", async () => {
@@ -337,7 +337,12 @@ function TeacherLanding(props: TeacherLandingProps) {
             <input value={className} onChange={(event) => setClassName(event.target.value)} />
           </label>
         </div>
-        <ActionButton icon={<Plus size={16} />} label="Create class" busy={loading === "class"} onClick={createClassPeriod} />
+        <ActionButton
+          icon={<Plus size={16} />}
+          label="Create class"
+          busy={loading === "class"}
+          onClick={createClassPeriod}
+        />
       </Panel>
 
       <Panel title="Current classes" icon={<Users size={18} />}>
@@ -435,11 +440,20 @@ type BooksViewProps = {
 function BooksView(props: BooksViewProps) {
   const [bookTitle, setBookTitle] = useState("");
   const [capacity, setCapacity] = useState(1);
+  const [minimumRankingCount, setMinimumRankingCount] = useState(0);
   const [notice, setNotice] = useState<Notice>(null);
   const [loading, setLoading] = useState("");
   const [copiedStudentUrl, setCopiedStudentUrl] = useState(false);
   const [confirmation, setConfirmation] = useState<Confirmation>(null);
   const studentUrl = buildPollUrl(props.classPeriod?.joinCode);
+  const totalCapacity = (props.classPeriod?.books ?? []).reduce((sum, book) => sum + book.capacity, 0);
+  const studentCount = props.classPeriod?.students.length ?? 0;
+  const hasTooManyStudents = studentCount > totalCapacity;
+  const bookCount = props.classPeriod?.books.length ?? 0;
+
+  useEffect(() => {
+    setMinimumRankingCount(props.classPeriod?.minimumRankingCount ?? bookCount);
+  }, [bookCount, props.classPeriod?.minimumRankingCount]);
 
   async function addBook() {
     return withNotice(setLoading, setNotice, "book", async () => {
@@ -457,6 +471,24 @@ function BooksView(props: BooksViewProps) {
       const details = await api.getClassPeriod(props.token, props.classId);
       props.onClassPeriod(details);
       setNotice({ kind: "success", message: "Books loaded." });
+    });
+  }
+
+  async function updateMinimumRankingCount() {
+    if (!props.classPeriod) {
+      return;
+    }
+    if (bookCount === 0) {
+      setNotice({ kind: "error", message: "Add at least one book before setting minimum votes." });
+      return;
+    }
+
+    return withNotice(setLoading, setNotice, "minimum-ranking-count", async () => {
+      const boundedMinimum = Math.min(bookCount, Math.max(1, minimumRankingCount));
+      await api.updateClassPeriod(props.token, props.classId, props.classPeriod?.name ?? "", boundedMinimum);
+      const details = await api.getClassPeriod(props.token, props.classId);
+      props.onClassPeriod(details);
+      setNotice({ kind: "success", message: "Minimum votes updated." });
     });
   }
 
@@ -508,6 +540,15 @@ function BooksView(props: BooksViewProps) {
     });
   }
 
+  async function clearClassStudents() {
+    return withNotice(setLoading, setNotice, "clear-students", async () => {
+      await api.clearClassStudents(props.token, props.classId);
+      const details = await api.getClassPeriod(props.token, props.classId);
+      props.onClassPeriod(details);
+      setNotice({ kind: "success", message: "Student data cleared." });
+    });
+  }
+
   function confirmDeleteStudent(student: ClassPeriod["students"][number]) {
     setConfirmation({
       title: "Remove student",
@@ -516,6 +557,18 @@ function BooksView(props: BooksViewProps) {
       onConfirm: () => {
         setConfirmation(null);
         void deleteStudent(student);
+      }
+    });
+  }
+
+  function confirmClearClassStudents() {
+    setConfirmation({
+      title: "Clear student data",
+      message: `Clear all student data from ${props.classPeriod?.name ?? "this class"}? This removes students, rankings, assignment results, and assignment runs while preserving the class, join code, and books.`,
+      confirmLabel: "Clear",
+      onConfirm: () => {
+        setConfirmation(null);
+        void clearClassStudents();
       }
     });
   }
@@ -559,13 +612,44 @@ function BooksView(props: BooksViewProps) {
         </div>
       </Panel>
 
-      <Panel title="Assignment" icon={<BarChart3 size={18} />}>
-        <div className="metric-grid">
-          <Metric label="Books" value={props.classPeriod?.books.length ?? 0} />
-          <Metric label="Capacity" value={(props.classPeriod?.books ?? []).reduce((sum, book) => sum + book.capacity, 0)} />
-          <Metric label="Students" value={props.classPeriod?.students.length ?? 0} />
+      <Panel title="Assignment" icon={<BarChart3 size={18} />} wide>
+        <div className="metric-grid four">
+          <Metric label="Books" value={bookCount} />
+          <Metric label="Capacity" value={totalCapacity} />
+          <Metric label="Students" value={studentCount} valueTone={hasTooManyStudents ? "danger" : undefined} />
+          <label className="metric metric-input">
+            <span>Min rankings per student</span>
+            <div className="metric-input-row">
+              <input
+                value={minimumRankingCount}
+                min={bookCount > 0 ? 1 : 0}
+                max={bookCount}
+                onChange={(event) => {
+                  const nextMinimum = Number(event.target.value);
+                  setMinimumRankingCount(Math.min(bookCount, Math.max(1, nextMinimum)));
+                }}
+                type="number"
+                disabled={bookCount === 0}
+              />
+              <button
+                className="metric-save-button"
+                disabled={loading === "minimum-ranking-count" || bookCount === 0}
+                onClick={updateMinimumRankingCount}
+                title="Save required rankings"
+                type="button"
+              >
+                {loading === "minimum-ranking-count" ? <Loader2 className="spin" size={15} /> : <Check size={15} />}
+                Save
+              </button>
+            </div>
+          </label>
         </div>
-        <ActionButton icon={<Check size={16} />} label="Run assignment" busy={loading === "assign"} onClick={runAssignment} />
+        <ActionButton
+          icon={<Check size={16} />}
+          label="Run assignment"
+          busy={loading === "assign"}
+          onClick={runAssignment}
+        />
       </Panel>
 
       <Panel title="Book list" icon={<BookOpen size={18} />} wide>
@@ -585,17 +669,22 @@ function BooksView(props: BooksViewProps) {
           </label>
           <ActionButton icon={<Plus size={16} />} label="Add" busy={loading === "book"} onClick={addBook} />
         </div>
-        <EditableBookTable
-          books={props.classPeriod?.books ?? []}
-          onUpdate={updateBook}
-          onDelete={confirmDeleteBook}
-        />
+        <EditableBookTable books={props.classPeriod?.books ?? []} onUpdate={updateBook} onDelete={confirmDeleteBook} />
       </Panel>
 
       <Panel title="Students" icon={<ClipboardList size={18} />} wide>
         <div className="metric-grid two">
           <CopyableMetric label="Student URL" value={studentUrl} copied={copiedStudentUrl} onCopy={copyStudentUrl} />
-          <Metric label="Students" value={props.classPeriod?.students.length ?? 0} />
+          <Metric label="Students" value={studentCount} valueTone={hasTooManyStudents ? "danger" : undefined} />
+        </div>
+        <div className="section-actions">
+          <ActionButton
+            icon={<Users size={16} />}
+            label="Clear students"
+            busy={loading === "clear-students"}
+            onClick={confirmClearClassStudents}
+            variant="secondary"
+          />
         </div>
         <EditableStudentTable
           students={props.classPeriod?.students ?? []}
@@ -618,9 +707,9 @@ function StudentPoll() {
   const [assignmentGridChecked, setAssignmentGridChecked] = useState(!hasUrlJoinCode);
   const [username, setUsername] = useState("");
   const [studentId, setStudentId] = useState("");
-  const [classId, setClassId] = useState("");
   const [classDisplayName, setClassDisplayName] = useState("");
   const [books, setBooks] = useState<Book[]>([]);
+  const [minimumRankingCount, setMinimumRankingCount] = useState(0);
   const [notice, setNotice] = useState<Notice>(null);
   const [loading, setLoading] = useState("");
   const [status, setStatus] = useState<StudentStatus | null>(null);
@@ -639,7 +728,8 @@ function StudentPoll() {
     setAssignmentGridChecked(false);
     setPublicAssignmentGrid(null);
 
-    api.getClassAssignmentGrid(urlJoinCode)
+    api
+      .getClassAssignmentGrid(urlJoinCode)
       .then((grid) => {
         if (active) {
           setPublicAssignmentGrid(grid.assignmentRunId ? grid : null);
@@ -666,10 +756,10 @@ function StudentPoll() {
         api.getStudentBooks(response.studentId)
       ]);
       setStudentId(response.studentId);
-      setClassId(response.classId);
       setClassDisplayName(response.className ?? bookResponse.className ?? (joinCode || response.classId));
       setStatus(nextStatus);
       setBooks(bookResponse.books);
+      setMinimumRankingCount(bookResponse.minimumRankingCount ?? bookResponse.books.length);
       setRankings({});
       setExistingMember(response.existingMember);
       setNotice({
@@ -684,6 +774,10 @@ function StudentPoll() {
       const payload: RankingItem[] = Object.entries(rankings)
         .filter(([, rank]) => rank > 0)
         .map(([bookId, rank]) => ({ bookId, rank }));
+      if (payload.length < minimumRankingCount) {
+        setNotice({ kind: "error", message: `Rank at least ${minimumRankingCount} books before submitting.` });
+        return;
+      }
       await api.submitRankings(studentId, payload);
       const nextStatus = await api.getStudentStatus(studentId);
       setStatus(nextStatus);
@@ -727,7 +821,12 @@ function StudentPoll() {
                 <input value={username} onChange={(event) => setUsername(event.target.value)} />
               </label>
             </div>
-            <ActionButton icon={<Send size={16} />} label="Continue" busy={loading === "join"} onClick={joinClassPeriod} />
+            <ActionButton
+              icon={<Send size={16} />}
+              label="Continue"
+              busy={loading === "join"}
+              onClick={joinClassPeriod}
+            />
           </Panel>
         )}
 
@@ -745,10 +844,14 @@ function StudentPoll() {
             </div>
             {existingMember && (
               <div className="inline-notice">
-                This student is already a member of this class. You can revise the rankings below; submitting again will replace
-                the old rankings.
+                This student is already a member of this class. You can revise the rankings below; submitting again will
+                replace the old rankings.
               </div>
             )}
+            <div className="metric-grid two">
+              <Metric label="Required" value={minimumRankingCount} />
+              <Metric label="Books" value={books.length} />
+            </div>
             <div className="ranking-list">
               {books.map((book) => (
                 <label className="ranking-row" key={book.id}>
@@ -759,6 +862,7 @@ function StudentPoll() {
                   <input
                     type="number"
                     min={1}
+                    max={books.length}
                     value={rankings[book.id] ?? ""}
                     onChange={(event) => setRankings({ ...rankings, [book.id]: Number(event.target.value) })}
                     aria-label={`Rank for ${book.title}`}
@@ -777,9 +881,10 @@ function StudentPoll() {
 
         {assignmentGridChecked && !publicAssignmentGrid && status && (
           <Panel title="Progress" icon={<BarChart3 size={18} />}>
-            <div className="metric-grid two">
+            <div className="metric-grid">
               <Metric label="Submitted" value={status.submitted ? "Yes" : "No"} />
               <Metric label="Ranked" value={`${status.rankCount}/${status.totalBooks}`} />
+              <Metric label="Required" value={status.minimumRankingCount} />
             </div>
           </Panel>
         )}
@@ -813,6 +918,14 @@ function ResultsView(props: ResultsViewProps) {
     () => new Map((props.classPeriod?.students ?? []).map((student) => [student.id, student.username])),
     [props.classPeriod]
   );
+  const unassignedStudents = useMemo(() => {
+    if (!props.latestAssignment) {
+      return [];
+    }
+
+    const assignedStudentIds = new Set(props.latestAssignment.results.map((result) => result.studentId));
+    return (props.classPeriod?.students ?? []).filter((student) => !assignedStudentIds.has(student.id));
+  }, [props.classPeriod, props.latestAssignment]);
 
   async function refreshResults() {
     return withNotice(setLoading, setNotice, "results", async () => {
@@ -835,12 +948,16 @@ function ResultsView(props: ResultsViewProps) {
           Class ID
           <input value={props.classId} onChange={(event) => props.onClassId(event.target.value)} />
         </label>
-        <ActionButton icon={<RefreshCw size={16} />} label="Refresh" busy={loading === "results"} onClick={refreshResults} />
+        <ActionButton
+          icon={<RefreshCw size={16} />}
+          label="Refresh"
+          busy={loading === "results"}
+          onClick={refreshResults}
+        />
       </Panel>
 
       <Panel title="Current metrics" icon={<BarChart3 size={18} />} wide>
-        <div className="metric-grid six">
-          <Metric label="Cost" value={props.latestAssignment?.totalCost ?? "-"} />
+        <div className="metric-grid five">
           <Metric label="Satisfaction" value={formatPercent(props.latestAssignment?.satisfactionScore)} />
           <Metric label="First choice" value={props.latestAssignment?.firstChoiceCount ?? 0} />
           <Metric label="Top three" value={props.latestAssignment?.topThreeCount ?? 0} />
@@ -862,6 +979,12 @@ function ResultsView(props: ResultsViewProps) {
               <tr key={`${result.studentId}-${result.bookId}`}>
                 <td>{studentNames.get(result.studentId) ?? result.studentId}</td>
                 <td>{bookNames.get(result.bookId) ?? result.bookId}</td>
+              </tr>
+            ))}
+            {unassignedStudents.map((student) => (
+              <tr key={`${student.id}-unassigned`}>
+                <td>{student.username}</td>
+                <td className="danger-text">Unassigned</td>
               </tr>
             ))}
           </tbody>
@@ -938,11 +1061,11 @@ function ActionButton({
   );
 }
 
-function Metric({ label, value }: { label: string; value: string | number }) {
+function Metric({ label, value, valueTone }: { label: string; value: string | number; valueTone?: "danger" }) {
   return (
     <div className="metric">
       <span>{label}</span>
-      <strong>{value}</strong>
+      <strong className={valueTone === "danger" ? "danger-text" : undefined}>{value}</strong>
     </div>
   );
 }
@@ -1061,7 +1184,7 @@ function EditableBookTable({
       <thead>
         <tr>
           <th>Title</th>
-          <th>Capacity</th>
+          <th>Max students</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -1070,7 +1193,11 @@ function EditableBookTable({
           <tr key={book.id}>
             <td>
               {editingBookId === book.id ? (
-                <input value={title} onChange={(event) => setTitle(event.target.value)} aria-label={`Title for ${book.title}`} />
+                <input
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                  aria-label={`Title for ${book.title}`}
+                />
               ) : (
                 book.title
               )}
@@ -1209,13 +1336,7 @@ function NoticeBanner({ notice }: { notice: Notice }) {
   return <div className={`notice ${notice.kind}`}>{notice.message}</div>;
 }
 
-function ConfirmationDialog({
-  confirmation,
-  onCancel
-}: {
-  confirmation: Confirmation;
-  onCancel: () => void;
-}) {
+function ConfirmationDialog({ confirmation, onCancel }: { confirmation: Confirmation; onCancel: () => void }) {
   if (!confirmation) {
     return null;
   }

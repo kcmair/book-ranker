@@ -20,8 +20,7 @@ import lombok.Setter;
 @Entity
 @Table(
     name = "assignments",
-    uniqueConstraints = @UniqueConstraint(columnNames = {"assignment_run_id", "student_id"})
-)
+    uniqueConstraints = @UniqueConstraint(columnNames = {"assignment_run_id", "student_id"}))
 @Getter
 @Setter
 @NoArgsConstructor

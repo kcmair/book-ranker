@@ -7,6 +7,4 @@ import java.util.List;
 @Schema(description = "Assignment run history for a class period")
 public record AssignmentHistoryResponse(
     @ArraySchema(schema = @Schema(description = "Assignment run summary"))
-    List<AssignmentRunSummaryResponse> runs
-) {
-}
+        List<AssignmentRunSummaryResponse> runs) {}
