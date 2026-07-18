@@ -476,7 +476,17 @@ Response:
   "submitted": true,
   "rankCount": 5,
   "totalBooks": 5,
-  "minimumRankingCount": 5
+  "minimumRankingCount": 5,
+  "rankings": [
+    {
+      "bookId": "book-uuid-1",
+      "rank": 1
+    },
+    {
+      "bookId": "book-uuid-2",
+      "rank": 2
+    }
+  ]
 }
 ```
 
@@ -628,6 +638,21 @@ Response:
     {
       "studentId": "uuid",
       "bookId": "uuid"
+    }
+  ],
+  "studentRankings": [
+    {
+      "studentId": "uuid",
+      "rankings": [
+        {
+          "bookId": "uuid",
+          "rank": 1
+        },
+        {
+          "bookId": "uuid",
+          "rank": 2
+        }
+      ]
     }
   ]
 }

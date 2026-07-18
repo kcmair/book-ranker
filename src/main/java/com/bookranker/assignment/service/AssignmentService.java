@@ -4,10 +4,12 @@ import com.bookranker.algorithm.AssignmentResult;
 import com.bookranker.algorithm.BookAssignmentSolver;
 import com.bookranker.algorithm.ClassState;
 import com.bookranker.assignment.dto.AssignmentHistoryResponse;
+import com.bookranker.assignment.dto.AssignmentRankingItemResponse;
 import com.bookranker.assignment.dto.AssignmentResultItemResponse;
 import com.bookranker.assignment.dto.AssignmentResultsResponse;
 import com.bookranker.assignment.dto.AssignmentRunSummaryResponse;
 import com.bookranker.assignment.dto.RunAssignmentResponse;
+import com.bookranker.assignment.dto.StudentAssignmentRankingsResponse;
 import com.bookranker.assignment.model.Assignment;
 import com.bookranker.assignment.model.AssignmentRun;
 import com.bookranker.assignment.model.AssignmentRunStatus;
@@ -16,10 +18,12 @@ import com.bookranker.assignment.repository.AssignmentRunRepository;
 import com.bookranker.books.model.Book;
 import com.bookranker.classperiods.model.ClassPeriod;
 import com.bookranker.classperiods.service.ClassPeriodService;
+import com.bookranker.rankings.repository.RankingRepository;
 import com.bookranker.students.model.Student;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,17 +38,20 @@ public class AssignmentService {
   private final ClassStateBuilder classStateBuilder;
   private final AssignmentRunRepository assignmentRunRepository;
   private final AssignmentRepository assignmentRepository;
+  private final RankingRepository rankingRepository;
   private final BookAssignmentSolver solver = new BookAssignmentSolver();
 
   public AssignmentService(
       ClassPeriodService classPeriodService,
       ClassStateBuilder classStateBuilder,
       AssignmentRunRepository assignmentRunRepository,
-      AssignmentRepository assignmentRepository) {
+      AssignmentRepository assignmentRepository,
+      RankingRepository rankingRepository) {
     this.classPeriodService = classPeriodService;
     this.classStateBuilder = classStateBuilder;
     this.assignmentRunRepository = assignmentRunRepository;
     this.assignmentRepository = assignmentRepository;
+    this.rankingRepository = rankingRepository;
   }
 
   @Transactional
@@ -100,7 +107,8 @@ public class AssignmentService {
                 assignment ->
                     new AssignmentResultItemResponse(
                         assignment.getStudent().getId(), assignment.getBook().getId()))
-            .toList());
+            .toList(),
+        buildStudentRankings(classPeriodId));
   }
 
   @Transactional(readOnly = true)
@@ -135,6 +143,26 @@ public class AssignmentService {
     assignmentRun.setTopThreeCount(distribution.topThreeCount());
     assignmentRun.setWorseThanThirdCount(distribution.worseThanThirdCount());
     assignmentRun.setUnassignedStudentCount(result.unassignedStudents().size());
+  }
+
+  private List<StudentAssignmentRankingsResponse> buildStudentRankings(String classPeriodId) {
+    return rankingRepository.findByStudentClassPeriodId(classPeriodId).stream()
+        .collect(Collectors.groupingBy(ranking -> ranking.getStudent().getId()))
+        .entrySet()
+        .stream()
+        .map(
+            entry ->
+                new StudentAssignmentRankingsResponse(
+                    entry.getKey(),
+                    entry.getValue().stream()
+                        .sorted(Comparator.comparingInt(ranking -> ranking.getRank()))
+                        .map(
+                            ranking ->
+                                new AssignmentRankingItemResponse(
+                                    ranking.getBook().getId(), ranking.getRank()))
+                        .toList()))
+        .sorted(Comparator.comparing(StudentAssignmentRankingsResponse::studentId))
+        .toList();
   }
 
   private void persistAssignments(

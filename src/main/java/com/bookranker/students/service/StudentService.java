@@ -8,11 +8,13 @@ import com.bookranker.classperiods.service.ClassPeriodService;
 import com.bookranker.rankings.repository.RankingRepository;
 import com.bookranker.students.dto.JoinClassPeriodRequest;
 import com.bookranker.students.dto.JoinClassPeriodResponse;
+import com.bookranker.students.dto.StudentRankingResponse;
 import com.bookranker.students.dto.StudentResponse;
 import com.bookranker.students.dto.StudentStatusResponse;
 import com.bookranker.students.dto.UpdateStudentRequest;
 import com.bookranker.students.model.Student;
 import com.bookranker.students.repository.StudentRepository;
+import java.util.Comparator;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -66,12 +68,19 @@ public class StudentService {
     int minimumRankingCount =
         classPeriodService.effectiveMinimumRankingCount(
             student.getClassPeriod(), Math.toIntExact(totalBooks));
+    var rankings =
+        rankingRepository.findByStudentId(studentId).stream()
+            .sorted(Comparator.comparingInt(ranking -> ranking.getRank()))
+            .map(
+                ranking -> new StudentRankingResponse(ranking.getBook().getId(), ranking.getRank()))
+            .toList();
 
     return new StudentStatusResponse(
         totalBooks > 0 && rankCount >= minimumRankingCount,
         rankCount,
         totalBooks,
-        minimumRankingCount);
+        minimumRankingCount,
+        rankings);
   }
 
   @Transactional(readOnly = true)

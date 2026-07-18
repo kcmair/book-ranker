@@ -1,11 +1,36 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  closestCenter,
+  DragOverlay,
+  DndContext,
+  type DragEndEvent,
+  type DragStartEvent,
+  KeyboardSensor,
+  PointerSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
+  AlertTriangle,
+  ArrowUpDown,
   BarChart3,
   BookOpen,
   Check,
+  CheckCircle2,
   ClipboardList,
   Copy,
   Edit3,
+  GripVertical,
   Loader2,
   LogIn,
   Plus,
@@ -13,9 +38,10 @@ import {
   Send,
   Trash2,
   UserPlus,
-  Users
+  Users,
+  X
 } from "lucide-react";
-import { api } from "./api/client";
+import { ApiRequestError, api } from "./api/client";
 import type {
   AssignmentResults,
   AssignmentRun,
@@ -29,7 +55,7 @@ import type {
 
 type View = "classes" | "books" | "results";
 type AuthMode = "signup" | "login";
-type Notice = { kind: "success" | "error"; message: string } | null;
+type Notice = { kind: "success" | "error"; message: string; details?: string[] } | null;
 type Confirmation = {
   title: string;
   message: string;
@@ -41,6 +67,8 @@ type TeacherClassSummary = {
   name: string;
   joinCode: string;
 };
+type AssignmentSortKey = "student" | "book";
+type SortDirection = "asc" | "desc";
 
 const storedToken = localStorage.getItem("bookranker.teacherToken") ?? "";
 const storedClassId = localStorage.getItem("bookranker.classId") ?? "";
@@ -63,6 +91,17 @@ function buildPollUrl(joinCode: string | undefined) {
   }
 
   return `${window.location.origin}/poll/${encodeURIComponent(joinCode)}`;
+}
+
+function submitOnEnter(action: () => void | Promise<void>) {
+  return (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") {
+      return;
+    }
+
+    event.preventDefault();
+    void action();
+  };
 }
 
 function App() {
@@ -131,9 +170,9 @@ function App() {
           token={token}
           classId={classId}
           classPeriod={classPeriod}
-          onClassId={persistClassId}
           onClassPeriod={setClassPeriod}
           onAssignment={setLatestAssignment}
+          onViewResults={() => setView("results")}
         />
       )}
       {view === "results" && (
@@ -208,6 +247,7 @@ function LoggedOutLanding({
               <input
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
+                onKeyDown={submitOnEnter(submitAuth)}
                 type="email"
                 autoComplete="email"
               />
@@ -217,6 +257,7 @@ function LoggedOutLanding({
               <input
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
+                onKeyDown={submitOnEnter(submitAuth)}
                 type="password"
                 autoComplete={isSignup ? "new-password" : "current-password"}
               />
@@ -231,7 +272,7 @@ function LoggedOutLanding({
         </article>
       </section>
 
-      <NoticeBanner notice={notice} />
+      <NoticeModal notice={notice} onDismiss={() => setNotice(null)} />
     </main>
   );
 }
@@ -334,7 +375,11 @@ function TeacherLanding(props: TeacherLandingProps) {
         <div className="form-grid">
           <label>
             Class name
-            <input value={className} onChange={(event) => setClassName(event.target.value)} />
+            <input
+              value={className}
+              onChange={(event) => setClassName(event.target.value)}
+              onKeyDown={submitOnEnter(createClassPeriod)}
+            />
           </label>
         </div>
         <ActionButton
@@ -369,7 +414,11 @@ function TeacherLanding(props: TeacherLandingProps) {
               {editingClassId === classItem.id ? (
                 <label className="inline-edit">
                   Class name
-                  <input value={editingClassName} onChange={(event) => setEditingClassName(event.target.value)} />
+                  <input
+                    value={editingClassName}
+                    onChange={(event) => setEditingClassName(event.target.value)}
+                    onKeyDown={submitOnEnter(() => updateClass(classItem))}
+                  />
                 </label>
               ) : (
                 <button className="class-open" onClick={() => openClass(classItem)}>
@@ -422,7 +471,7 @@ function TeacherLanding(props: TeacherLandingProps) {
         </Panel>
       )}
 
-      <NoticeBanner notice={notice} />
+      <NoticeModal notice={notice} onDismiss={() => setNotice(null)} />
       <ConfirmationDialog confirmation={confirmation} onCancel={() => setConfirmation(null)} />
     </section>
   );
@@ -432,9 +481,9 @@ type BooksViewProps = {
   token: string;
   classId: string;
   classPeriod: ClassPeriod | null;
-  onClassId: (classId: string) => void;
   onClassPeriod: (classPeriod: ClassPeriod) => void;
   onAssignment: (assignment: AssignmentResults) => void;
+  onViewResults: () => void;
 };
 
 function BooksView(props: BooksViewProps) {
@@ -578,7 +627,7 @@ function BooksView(props: BooksViewProps) {
       await api.runAssignment(props.token, props.classId);
       const latest = await api.getLatestAssignment(props.token, props.classId);
       props.onAssignment(latest);
-      setNotice({ kind: "success", message: "Assignment run completed." });
+      props.onViewResults();
     });
   }
 
@@ -592,7 +641,6 @@ function BooksView(props: BooksViewProps) {
       await navigator.clipboard.writeText(studentUrl);
       setCopiedStudentUrl(true);
       window.setTimeout(() => setCopiedStudentUrl(false), 1400);
-      setNotice({ kind: "success", message: "Student URL copied." });
     } catch {
       setNotice({ kind: "error", message: "Copy failed. Select the URL and copy it manually." });
     }
@@ -628,6 +676,7 @@ function BooksView(props: BooksViewProps) {
                   const nextMinimum = Number(event.target.value);
                   setMinimumRankingCount(Math.min(bookCount, Math.max(1, nextMinimum)));
                 }}
+                onKeyDown={submitOnEnter(updateMinimumRankingCount)}
                 type="number"
                 disabled={bookCount === 0}
               />
@@ -644,6 +693,9 @@ function BooksView(props: BooksViewProps) {
             </div>
           </label>
         </div>
+        <div className="metric-grid one">
+          <CopyableMetric label="Student URL" value={studentUrl} copied={copiedStudentUrl} onCopy={copyStudentUrl} />
+        </div>
         <ActionButton
           icon={<Check size={16} />}
           label="Run assignment"
@@ -656,7 +708,11 @@ function BooksView(props: BooksViewProps) {
         <div className="form-grid book-entry">
           <label>
             Title
-            <input value={bookTitle} onChange={(event) => setBookTitle(event.target.value)} />
+            <input
+              value={bookTitle}
+              onChange={(event) => setBookTitle(event.target.value)}
+              onKeyDown={submitOnEnter(addBook)}
+            />
           </label>
           <label>
             Capacity
@@ -664,6 +720,7 @@ function BooksView(props: BooksViewProps) {
               value={capacity}
               min={1}
               onChange={(event) => setCapacity(Number(event.target.value))}
+              onKeyDown={submitOnEnter(addBook)}
               type="number"
             />
           </label>
@@ -673,10 +730,6 @@ function BooksView(props: BooksViewProps) {
       </Panel>
 
       <Panel title="Students" icon={<ClipboardList size={18} />} wide>
-        <div className="metric-grid two">
-          <CopyableMetric label="Student URL" value={studentUrl} copied={copiedStudentUrl} onCopy={copyStudentUrl} />
-          <Metric label="Students" value={studentCount} valueTone={hasTooManyStudents ? "danger" : undefined} />
-        </div>
         <div className="section-actions">
           <ActionButton
             icon={<Users size={16} />}
@@ -693,7 +746,7 @@ function BooksView(props: BooksViewProps) {
         />
       </Panel>
 
-      <NoticeBanner notice={notice} />
+      <NoticeModal notice={notice} onDismiss={() => setNotice(null)} />
       <ConfirmationDialog confirmation={confirmation} onCancel={() => setConfirmation(null)} />
     </section>
   );
@@ -713,9 +766,33 @@ function StudentPoll() {
   const [notice, setNotice] = useState<Notice>(null);
   const [loading, setLoading] = useState("");
   const [status, setStatus] = useState<StudentStatus | null>(null);
-  const [rankings, setRankings] = useState<Record<string, number>>({});
+  const [rankedBookIds, setRankedBookIds] = useState<string[]>([]);
+  const [activeDragBookId, setActiveDragBookId] = useState("");
   const [existingMember, setExistingMember] = useState(false);
   const hasPreviousRankings = Boolean(status && status.rankCount > 0);
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 6 }
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates
+    })
+  );
+  const availableBooks = useMemo(
+    () => books.filter((book) => !rankedBookIds.includes(book.id)),
+    [books, rankedBookIds]
+  );
+  const rankedBooks = useMemo(
+    () =>
+      rankedBookIds
+        .map((bookId) => books.find((book) => book.id === bookId))
+        .filter((book): book is Book => Boolean(book)),
+    [books, rankedBookIds]
+  );
+  const activeDragBook = useMemo(
+    () => books.find((book) => book.id === activeDragBookId) ?? null,
+    [activeDragBookId, books]
+  );
 
   useEffect(() => {
     let active = true;
@@ -760,20 +837,19 @@ function StudentPoll() {
       setStatus(nextStatus);
       setBooks(bookResponse.books);
       setMinimumRankingCount(bookResponse.minimumRankingCount ?? bookResponse.books.length);
-      setRankings({});
+      setRankedBookIds(
+        [...(nextStatus.rankings ?? [])]
+          .sort((left, right) => left.rank - right.rank)
+          .map((ranking) => ranking.bookId)
+          .filter((bookId) => bookResponse.books.some((book) => book.id === bookId))
+      );
       setExistingMember(response.existingMember);
-      setNotice({
-        kind: "success",
-        message: response.existingMember ? "Existing class membership found." : "Joined class."
-      });
     });
   }
 
   async function submitRankings() {
     return withNotice(setLoading, setNotice, "rankings", async () => {
-      const payload: RankingItem[] = Object.entries(rankings)
-        .filter(([, rank]) => rank > 0)
-        .map(([bookId, rank]) => ({ bookId, rank }));
+      const payload: RankingItem[] = rankedBookIds.map((bookId, index) => ({ bookId, rank: index + 1 }));
       if (payload.length < minimumRankingCount) {
         setNotice({ kind: "error", message: `Rank at least ${minimumRankingCount} books before submitting.` });
         return;
@@ -782,6 +858,50 @@ function StudentPoll() {
       const nextStatus = await api.getStudentStatus(studentId);
       setStatus(nextStatus);
       setNotice({ kind: "success", message: "Rankings submitted." });
+    });
+  }
+
+  function handleRankingDragStart(event: DragStartEvent) {
+    setActiveDragBookId(String(event.active.id));
+  }
+
+  function handleRankingDragEnd(event: DragEndEvent) {
+    const activeBookId = String(event.active.id);
+    const overId = event.over?.id ? String(event.over.id) : "";
+
+    setActiveDragBookId("");
+
+    if (!overId) {
+      return;
+    }
+
+    setRankedBookIds((currentRankedBookIds) => {
+      const activeIndex = currentRankedBookIds.indexOf(activeBookId);
+      const overIndex = currentRankedBookIds.indexOf(overId);
+
+      if (activeIndex >= 0 && overIndex >= 0) {
+        return arrayMove(currentRankedBookIds, activeIndex, overIndex);
+      }
+
+      if (activeIndex >= 0 && overId === "available-books-dropzone") {
+        return currentRankedBookIds.filter((bookId) => bookId !== activeBookId);
+      }
+
+      if (activeIndex >= 0 || !books.some((book) => book.id === activeBookId)) {
+        return currentRankedBookIds;
+      }
+
+      if (overId === "ranked-books-dropzone") {
+        return [...currentRankedBookIds, activeBookId];
+      }
+
+      if (overIndex >= 0) {
+        const nextRankedBookIds = [...currentRankedBookIds];
+        nextRankedBookIds.splice(overIndex, 0, activeBookId);
+        return nextRankedBookIds;
+      }
+
+      return currentRankedBookIds;
     });
   }
 
@@ -813,12 +933,20 @@ function StudentPoll() {
               {!hasUrlJoinCode && (
                 <label>
                   Join code
-                  <input value={joinCode} onChange={(event) => setJoinCode(event.target.value.toUpperCase())} />
+                  <input
+                    value={joinCode}
+                    onChange={(event) => setJoinCode(event.target.value.toUpperCase())}
+                    onKeyDown={submitOnEnter(joinClassPeriod)}
+                  />
                 </label>
               )}
               <label>
                 Username
-                <input value={username} onChange={(event) => setUsername(event.target.value)} />
+                <input
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
+                  onKeyDown={submitOnEnter(joinClassPeriod)}
+                />
               </label>
             </div>
             <ActionButton
@@ -849,27 +977,22 @@ function StudentPoll() {
               </div>
             )}
             <div className="metric-grid two">
-              <Metric label="Required" value={minimumRankingCount} />
               <Metric label="Books" value={books.length} />
+              <Metric label="Rankings required" value={minimumRankingCount} />
             </div>
-            <div className="ranking-list">
-              {books.map((book) => (
-                <label className="ranking-row" key={book.id}>
-                  <span>
-                    <strong>{book.title}</strong>
-                    <small>Capacity {book.capacity}</small>
-                  </span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={books.length}
-                    value={rankings[book.id] ?? ""}
-                    onChange={(event) => setRankings({ ...rankings, [book.id]: Number(event.target.value) })}
-                    aria-label={`Rank for ${book.title}`}
-                  />
-                </label>
-              ))}
-            </div>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={handleRankingDragStart}
+              onDragEnd={handleRankingDragEnd}
+              onDragCancel={() => setActiveDragBookId("")}
+            >
+              <div className="ranking-board">
+                <AvailableBooksDropZone books={availableBooks} />
+                <RankingDropZone books={rankedBooks} />
+              </div>
+              <DragOverlay>{activeDragBook && <RankingDragOverlay book={activeDragBook} />}</DragOverlay>
+            </DndContext>
             <ActionButton
               icon={<Check size={16} />}
               label={existingMember || hasPreviousRankings ? "Submit revised rankings" : "Submit rankings"}
@@ -889,7 +1012,7 @@ function StudentPoll() {
           </Panel>
         )}
 
-        <NoticeBanner notice={notice} />
+        <NoticeModal notice={notice} onDismiss={() => setNotice(null)} />
       </section>
     </main>
   );
@@ -909,23 +1032,89 @@ function ResultsView(props: ResultsViewProps) {
   const [history, setHistory] = useState<AssignmentRun[]>([]);
   const [notice, setNotice] = useState<Notice>(null);
   const [loading, setLoading] = useState("");
+  const [assignmentSort, setAssignmentSort] = useState<{
+    key: AssignmentSortKey;
+    direction: SortDirection;
+  }>({ key: "student", direction: "asc" });
 
   const bookNames = useMemo(
     () => new Map((props.classPeriod?.books ?? []).map((book) => [book.id, book.title])),
-    [props.classPeriod]
+    [props.classPeriod?.books]
   );
   const studentNames = useMemo(
     () => new Map((props.classPeriod?.students ?? []).map((student) => [student.id, student.username])),
-    [props.classPeriod]
+    [props.classPeriod?.students]
   );
-  const unassignedStudents = useMemo(() => {
-    if (!props.latestAssignment) {
-      return [];
-    }
+  const rankingColumnCount = useMemo(() => {
+    const classBookCount = props.classPeriod?.books.length ?? 0;
+    const submittedRankingCount = Math.max(
+      0,
+      ...(props.latestAssignment?.studentRankings ?? []).map((studentRanking) => studentRanking.rankings.length)
+    );
 
-    const assignedStudentIds = new Set(props.latestAssignment.results.map((result) => result.studentId));
-    return (props.classPeriod?.students ?? []).filter((student) => !assignedStudentIds.has(student.id));
-  }, [props.classPeriod, props.latestAssignment]);
+    return Math.max(classBookCount, submittedRankingCount);
+  }, [props.classPeriod?.books.length, props.latestAssignment?.studentRankings]);
+  const rankingColumnLabels = useMemo(
+    () => Array.from({ length: rankingColumnCount }, (_, index) => ordinalLabel(index + 1)),
+    [rankingColumnCount]
+  );
+  const assignmentRows = useMemo(() => {
+    const assignmentsByStudentId = new Map(
+      (props.latestAssignment?.results ?? []).map((result) => [result.studentId, result.bookId])
+    );
+    const rankingsByStudentId = new Map(
+      (props.latestAssignment?.studentRankings ?? []).map((studentRanking) => [
+        studentRanking.studentId,
+        [...studentRanking.rankings].sort((left, right) => left.rank - right.rank)
+      ])
+    );
+    const students =
+      props.classPeriod?.students ??
+      (props.latestAssignment?.results ?? []).map((result) => ({
+        id: result.studentId,
+        username: studentNames.get(result.studentId) ?? result.studentId
+      }));
+    const rows = [
+      ...students.map((student) => {
+        const assignedBookId = assignmentsByStudentId.get(student.id);
+        const submittedRankings = rankingsByStudentId.get(student.id) ?? [];
+
+        return {
+          id: student.id,
+          student: student.username,
+          assignedBookId,
+          book: assignedBookId ? (bookNames.get(assignedBookId) ?? assignedBookId) : "Unassigned",
+          rankingBookIds: submittedRankings.map((ranking) => ranking.bookId),
+          rankingBooks: submittedRankings.map((ranking) => bookNames.get(ranking.bookId) ?? ranking.bookId),
+          unassigned: !assignedBookId
+        };
+      })
+    ];
+
+    return [...rows].sort((left, right) => {
+      const primaryCompare = left[assignmentSort.key].localeCompare(right[assignmentSort.key], undefined, {
+        sensitivity: "base"
+      });
+      const stableCompare = left.student.localeCompare(right.student, undefined, { sensitivity: "base" });
+      const compare = primaryCompare || stableCompare;
+
+      return assignmentSort.direction === "asc" ? compare : -compare;
+    });
+  }, [
+    assignmentSort,
+    bookNames,
+    props.classPeriod?.students,
+    props.latestAssignment?.results,
+    props.latestAssignment?.studentRankings,
+    studentNames
+  ]);
+
+  function toggleAssignmentSort(key: AssignmentSortKey) {
+    setAssignmentSort((currentSort) => ({
+      key,
+      direction: currentSort.key === key && currentSort.direction === "asc" ? "desc" : "asc"
+    }));
+  }
 
   async function refreshResults() {
     return withNotice(setLoading, setNotice, "results", async () => {
@@ -937,17 +1126,16 @@ function ResultsView(props: ResultsViewProps) {
       props.onClassPeriod(details);
       props.onAssignment(latest);
       setHistory(runs.runs);
-      setNotice({ kind: "success", message: "Results refreshed." });
     });
   }
 
   return (
     <section className="workspace-grid results-grid">
       <Panel title="Results lookup" icon={<RefreshCw size={18} />}>
-        <label>
-          Class ID
-          <input value={props.classId} onChange={(event) => props.onClassId(event.target.value)} />
-        </label>
+        <div className="metric-grid two">
+          <Metric label="Class" value={props.classPeriod?.name ?? "No class selected"} />
+          <Metric label="Link ID" value={props.classPeriod?.joinCode ?? "-"} />
+        </div>
         <ActionButton
           icon={<RefreshCw size={16} />}
           label="Refresh"
@@ -970,21 +1158,41 @@ function ResultsView(props: ResultsViewProps) {
         <table>
           <thead>
             <tr>
-              <th>Student</th>
-              <th>Book</th>
+              <th>
+                <SortButton
+                  label="Student"
+                  active={assignmentSort.key === "student"}
+                  onClick={() => toggleAssignmentSort("student")}
+                />
+              </th>
+              <th>
+                <SortButton
+                  label="Assigned book"
+                  active={assignmentSort.key === "book"}
+                  onClick={() => toggleAssignmentSort("book")}
+                />
+              </th>
+              {rankingColumnLabels.map((label) => (
+                <th key={label}>{label}</th>
+              ))}
             </tr>
           </thead>
           <tbody>
-            {(props.latestAssignment?.results ?? []).map((result) => (
-              <tr key={`${result.studentId}-${result.bookId}`}>
-                <td>{studentNames.get(result.studentId) ?? result.studentId}</td>
-                <td>{bookNames.get(result.bookId) ?? result.bookId}</td>
-              </tr>
-            ))}
-            {unassignedStudents.map((student) => (
-              <tr key={`${student.id}-unassigned`}>
-                <td>{student.username}</td>
-                <td className="danger-text">Unassigned</td>
+            {assignmentRows.map((row) => (
+              <tr key={row.id}>
+                <td>{row.student}</td>
+                <td className={row.unassigned ? "danger-text" : undefined}>{row.book}</td>
+                {rankingColumnLabels.map((label, index) => {
+                  const rankedBookId = row.rankingBookIds[index];
+                  const rankedBook = row.rankingBooks[index] ?? "";
+                  const isAssignedRanking = Boolean(row.assignedBookId && rankedBookId === row.assignedBookId);
+
+                  return (
+                    <td className={isAssignedRanking ? "assigned-ranking-cell" : undefined} key={`${row.id}-${label}`}>
+                      {rankedBook || <span className="empty-cell">-</span>}
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>
@@ -1016,7 +1224,7 @@ function ResultsView(props: ResultsViewProps) {
         </table>
       </Panel>
 
-      <NoticeBanner notice={notice} />
+      <NoticeModal notice={notice} onDismiss={() => setNotice(null)} />
     </section>
   );
 }
@@ -1070,6 +1278,118 @@ function Metric({ label, value, valueTone }: { label: string; value: string | nu
   );
 }
 
+function SortButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button type="button" className={`sort-button ${active ? "active" : ""}`} onClick={onClick}>
+      <span>{label}</span>
+      <ArrowUpDown size={14} />
+    </button>
+  );
+}
+
+function DraggableBookCard({ book }: { book: Book }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: book.id });
+  const style = {
+    transform: CSS.Translate.toString(transform)
+  };
+
+  return (
+    <button
+      type="button"
+      className={`ranking-card ${isDragging ? "dragging" : ""}`}
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+    >
+      <GripVertical size={17} />
+      <span>
+        <strong>{book.title}</strong>
+        <small>Capacity {book.capacity}</small>
+      </span>
+    </button>
+  );
+}
+
+function RankingDragOverlay({ book }: { book: Book }) {
+  return (
+    <div className="ranking-card drag-overlay-card">
+      <GripVertical size={17} />
+      <span>
+        <strong>{book.title}</strong>
+        <small>Capacity {book.capacity}</small>
+      </span>
+    </div>
+  );
+}
+
+function AvailableBooksDropZone({ books }: { books: Book[] }) {
+  const { setNodeRef, isOver } = useDroppable({ id: "available-books-dropzone" });
+
+  return (
+    <div className={`ranking-column ranking-dropzone ${isOver ? "over" : ""}`} ref={setNodeRef}>
+      <div className="ranking-column-heading">
+        <h3>Book list</h3>
+        <span>{books.length}</span>
+      </div>
+      <div className="ranking-list">
+        {books.length === 0 && <p className="empty-state">All books are ranked.</p>}
+        {books.map((book) => (
+          <DraggableBookCard book={book} key={book.id} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function RankingDropZone({ books }: { books: Book[] }) {
+  const { setNodeRef, isOver } = useDroppable({ id: "ranked-books-dropzone" });
+
+  return (
+    <div className={`ranking-column ranking-dropzone ${isOver ? "over" : ""}`} ref={setNodeRef}>
+      <div className="ranking-column-heading">
+        <h3>Ranking</h3>
+        <span>{books.length}</span>
+      </div>
+      <SortableContext items={books.map((book) => book.id)} strategy={verticalListSortingStrategy}>
+        <div className="ranking-list ranked">
+          {books.length === 0 && <p className="empty-state">Drag books here in order from highest to lowest.</p>}
+          {books.map((book, index) => (
+            <SortableRankedBookCard book={book} key={book.id} rank={index + 1} />
+          ))}
+        </div>
+      </SortableContext>
+    </div>
+  );
+}
+
+function SortableRankedBookCard({ book, rank }: { book: Book; rank: number }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: book.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition
+  };
+
+  return (
+    <button
+      type="button"
+      className={`ranking-card ranked ${isDragging ? "dragging" : ""}`}
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      aria-label={`Move ${book.title}`}
+    >
+      <GripVertical size={17} />
+      <span className="ranking-position">{rank}</span>
+      <span>
+        <strong>{book.title}</strong>
+        <small>Capacity {book.capacity}</small>
+      </span>
+    </button>
+  );
+}
+
 function CopyableMetric({
   label,
   value,
@@ -1093,12 +1413,33 @@ function CopyableMetric({
 }
 
 function ClassAssignmentSpreadsheet({ grid }: { grid: ClassAssignmentGrid }) {
+  const [studentSearch, setStudentSearch] = useState("");
+  const spreadsheetRef = useRef<HTMLDivElement>(null);
+  const normalizedSearch = studentSearch.trim().toLowerCase();
+
+  useEffect(() => {
+    if (!normalizedSearch) {
+      return;
+    }
+
+    const firstMatch = spreadsheetRef.current?.querySelector('[data-student-match="true"]');
+    firstMatch?.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
+  }, [normalizedSearch]);
+
   return (
-    <div className="spreadsheet-wrap public-assignment-grid">
+    <div className="spreadsheet-wrap public-assignment-grid" ref={spreadsheetRef}>
       <div className="spreadsheet-meta">
         <Metric label="Class" value={grid.className} />
-        <Metric label="Join code" value={grid.joinCode} />
-        <Metric label="Run" value={grid.assignmentRunId ?? "-"} />
+      </div>
+      <div className="spreadsheet-search">
+        <label>
+          Find your name
+          <input
+            value={studentSearch}
+            onChange={(event) => setStudentSearch(event.target.value)}
+            placeholder="Start typing your name"
+          />
+        </label>
       </div>
       <table className="spreadsheet-table">
         <thead>
@@ -1114,9 +1455,18 @@ function ClassAssignmentSpreadsheet({ grid }: { grid: ClassAssignmentGrid }) {
               <td>
                 {row.students.length > 0 ? (
                   <div className="student-chip-list">
-                    {row.students.map((student) => (
-                      <span key={student}>{student}</span>
-                    ))}
+                    {row.students.map((student, studentIndex) => {
+                      const isMatch = Boolean(normalizedSearch && student.toLowerCase().includes(normalizedSearch));
+
+                      return (
+                        <React.Fragment key={student}>
+                          <span className={isMatch ? "student-search-match" : undefined} data-student-match={isMatch}>
+                            {student}
+                          </span>
+                          {studentIndex < row.students.length - 1 && <span className="student-separator">·</span>}
+                        </React.Fragment>
+                      );
+                    })}
                   </div>
                 ) : (
                   <span className="empty-cell">No assignment</span>
@@ -1196,6 +1546,10 @@ function EditableBookTable({
                 <input
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
+                  onKeyDown={submitOnEnter(() => {
+                    onUpdate(book, title, capacity);
+                    setEditingBookId("");
+                  })}
                   aria-label={`Title for ${book.title}`}
                 />
               ) : (
@@ -1208,6 +1562,10 @@ function EditableBookTable({
                   value={capacity}
                   min={1}
                   onChange={(event) => setCapacity(Number(event.target.value))}
+                  onKeyDown={submitOnEnter(() => {
+                    onUpdate(book, title, capacity);
+                    setEditingBookId("");
+                  })}
                   type="number"
                   aria-label={`Capacity for ${book.title}`}
                 />
@@ -1271,7 +1629,6 @@ function EditableStudentTable({
       <thead>
         <tr>
           <th>Username</th>
-          <th>Student ID</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -1283,13 +1640,16 @@ function EditableStudentTable({
                 <input
                   value={username}
                   onChange={(event) => setUsername(event.target.value)}
+                  onKeyDown={submitOnEnter(() => {
+                    onUpdate(student, username);
+                    setEditingStudentId("");
+                  })}
                   aria-label={`Username for ${student.username}`}
                 />
               ) : (
                 student.username
               )}
             </td>
-            <td>{student.id}</td>
             <td>
               <div className="table-actions">
                 {editingStudentId === student.id ? (
@@ -1328,12 +1688,45 @@ function EditableStudentTable({
   );
 }
 
-function NoticeBanner({ notice }: { notice: Notice }) {
+function NoticeModal({ notice, onDismiss }: { notice: Notice; onDismiss: () => void }) {
   if (!notice) {
     return null;
   }
 
-  return <div className={`notice ${notice.kind}`}>{notice.message}</div>;
+  const title = notice.kind === "success" ? "Success" : "Something went wrong";
+  const icon = notice.kind === "success" ? <CheckCircle2 size={22} /> : <AlertTriangle size={22} />;
+
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <div
+        className={`notice-dialog ${notice.kind}`}
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="notice-dialog-title"
+      >
+        <button type="button" className="icon-button notice-close" aria-label="Dismiss message" onClick={onDismiss}>
+          <X size={17} />
+        </button>
+        <div className="notice-heading">
+          {icon}
+          <h2 id="notice-dialog-title">{title}</h2>
+        </div>
+        <p>{notice.message}</p>
+        {notice.details && notice.details.length > 0 && (
+          <ul className="notice-details">
+            {notice.details.map((detail, index) => (
+              <li key={`${detail}-${index}`}>{detail}</li>
+            ))}
+          </ul>
+        )}
+        <div className="confirm-actions">
+          <button type="button" onClick={onDismiss}>
+            Dismiss
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function ConfirmationDialog({ confirmation, onCancel }: { confirmation: Confirmation; onCancel: () => void }) {
@@ -1373,10 +1766,25 @@ async function withNotice(
   try {
     await task();
   } catch (error) {
-    setNotice({ kind: "error", message: error instanceof Error ? error.message : "Request failed." });
+    setNotice(noticeFromError(error));
   } finally {
     setLoading("");
   }
+}
+
+function noticeFromError(error: unknown): Notice {
+  if (error instanceof ApiRequestError) {
+    return {
+      kind: "error",
+      message: error.message,
+      details: error.details
+    };
+  }
+
+  return {
+    kind: "error",
+    message: error instanceof Error ? error.message : "Request failed."
+  };
 }
 
 function formatPercent(value: number | undefined) {
@@ -1385,6 +1793,12 @@ function formatPercent(value: number | undefined) {
   }
 
   return `${Math.round(value * 100)}%`;
+}
+
+function ordinalLabel(value: number) {
+  const labels = ["First", "Second", "Third", "Fourth", "Fifth", "Sixth", "Seventh", "Eighth", "Ninth", "Tenth"];
+
+  return labels[value - 1] ?? `${value}th`;
 }
 
 export default App;

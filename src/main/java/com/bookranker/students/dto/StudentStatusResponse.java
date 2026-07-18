@@ -1,6 +1,7 @@
 package com.bookranker.students.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import java.util.List;
 
 @Schema(description = "Student ranking submission status")
 public record StudentStatusResponse(
@@ -14,4 +15,6 @@ public record StudentStatusResponse(
     @Schema(description = "Total number of books in the student's class period", example = "5")
         long totalBooks,
     @Schema(description = "Minimum number of rankings required for submission", example = "3")
-        long minimumRankingCount) {}
+        long minimumRankingCount,
+    @Schema(description = "Submitted rankings ordered by rank")
+        List<StudentRankingResponse> rankings) {}

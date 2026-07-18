@@ -14,6 +14,32 @@ type RequestOptions = {
   body?: unknown;
 };
 
+type ApiErrorShape = {
+  error?: unknown;
+  errors?: unknown;
+  message?: unknown;
+  path?: unknown;
+  status?: unknown;
+  title?: unknown;
+  timestamp?: unknown;
+};
+
+export class ApiRequestError extends Error {
+  details: string[];
+  method: string;
+  path: string;
+  status: number;
+
+  constructor(message: string, status: number, method: string, path: string, details: string[] = []) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.status = status;
+    this.method = method;
+    this.path = path;
+    this.details = details;
+  }
+}
+
 type CreateClassPeriodResponse = {
   classId: string;
   joinCode: string;
@@ -58,8 +84,7 @@ async function request<T>(path: string, method: string, options: RequestOptions 
   });
 
   if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || `${method} ${path} failed with ${response.status}`);
+    throw await buildApiRequestError(response, method, path);
   }
 
   if (response.status === 204) {
@@ -67,6 +92,87 @@ async function request<T>(path: string, method: string, options: RequestOptions 
   }
 
   return response.json() as Promise<T>;
+}
+
+async function buildApiRequestError(response: Response, method: string, path: string) {
+  const rawBody = await response.text();
+  const parsedBody = parseJsonBody(rawBody);
+  const { message, details } = formatApiError(parsedBody, rawBody, response.status, method, path);
+
+  return new ApiRequestError(message, response.status, method, path, details);
+}
+
+function parseJsonBody(rawBody: string) {
+  if (!rawBody.trim()) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(rawBody) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+function formatApiError(parsedBody: unknown, rawBody: string, status: number, method: string, path: string) {
+  if (!isApiErrorShape(parsedBody)) {
+    return {
+      message: rawBody.trim() || `${method} ${path} failed with ${status}`,
+      details: [`Request: ${method} ${path}`, `HTTP status: ${status}`]
+    };
+  }
+
+  const apiMessage = getString(parsedBody.message);
+  const apiError = getString(parsedBody.error);
+  const apiTitle = getString(parsedBody.title);
+  const messageBase = apiMessage || apiError || apiTitle || `${method} ${path} failed`;
+  const message = status ? `${messageBase} (${status})` : messageBase;
+  const responsePath = getString(parsedBody.path);
+  const details = [`Request: ${method} ${path}`];
+
+  if (responsePath && responsePath !== path) {
+    details.push(`Response path: ${responsePath}`);
+  }
+
+  const validationDetails = formatValidationErrors(parsedBody.errors);
+  details.push(...validationDetails);
+
+  return { message, details };
+}
+
+function isApiErrorShape(value: unknown): value is ApiErrorShape {
+  return typeof value === "object" && value !== null;
+}
+
+function getString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : "";
+}
+
+function formatValidationErrors(errors: unknown) {
+  if (!Array.isArray(errors)) {
+    return [];
+  }
+
+  return errors
+    .map((error) => {
+      if (typeof error === "string") {
+        return error;
+      }
+
+      if (!isApiErrorShape(error)) {
+        return "";
+      }
+
+      const field = getString((error as { field?: unknown }).field);
+      const message = getString(error.message) || getString((error as { defaultMessage?: unknown }).defaultMessage);
+
+      if (field && message) {
+        return `${field}: ${message}`;
+      }
+
+      return message || field;
+    })
+    .filter(Boolean);
 }
 
 const liveClient = {
@@ -229,7 +335,8 @@ const mockClient: typeof liveClient = {
     submitted: true,
     rankCount: mockClass.books.length,
     totalBooks: mockClass.books.length,
-    minimumRankingCount: mockClass.minimumRankingCount
+    minimumRankingCount: mockClass.minimumRankingCount,
+    rankings: mockClass.books.map((book, index) => ({ bookId: book.id, rank: index + 1 }))
   }),
   runAssignment: async () => ({
     assignmentRunId: mockRun.runId,
@@ -247,6 +354,32 @@ const mockClient: typeof liveClient = {
       { studentId: "student-1", bookId: "book-1" },
       { studentId: "student-2", bookId: "book-2" },
       { studentId: "student-3", bookId: "book-3" }
+    ],
+    studentRankings: [
+      {
+        studentId: "student-1",
+        rankings: [
+          { bookId: "book-1", rank: 1 },
+          { bookId: "book-2", rank: 2 },
+          { bookId: "book-3", rank: 3 }
+        ]
+      },
+      {
+        studentId: "student-2",
+        rankings: [
+          { bookId: "book-2", rank: 1 },
+          { bookId: "book-1", rank: 2 },
+          { bookId: "book-3", rank: 3 }
+        ]
+      },
+      {
+        studentId: "student-3",
+        rankings: [
+          { bookId: "book-2", rank: 1 },
+          { bookId: "book-3", rank: 2 },
+          { bookId: "book-1", rank: 3 }
+        ]
+      }
     ]
   }),
   getAssignmentHistory: async () => ({ runs: [mockRun] }),
