@@ -181,7 +181,6 @@ function App() {
           classId={classId}
           classPeriod={classPeriod}
           latestAssignment={latestAssignment}
-          onClassId={persistClassId}
           onClassPeriod={setClassPeriod}
           onAssignment={setLatestAssignment}
         />
@@ -1023,7 +1022,6 @@ type ResultsViewProps = {
   classId: string;
   classPeriod: ClassPeriod | null;
   latestAssignment: AssignmentResults | null;
-  onClassId: (classId: string) => void;
   onClassPeriod: (classPeriod: ClassPeriod) => void;
   onAssignment: (assignment: AssignmentResults) => void;
 };

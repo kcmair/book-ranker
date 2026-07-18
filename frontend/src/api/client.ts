@@ -196,8 +196,6 @@ const liveClient = {
       token,
       body: { title, capacity }
     }),
-  getBooks: (token: string, classId: string) =>
-    request<{ books: Book[] }>(`/api/classes/${classId}/books`, "GET", { token }),
   updateBook: (token: string, classId: string, bookId: string, title: string, capacity: number) =>
     request<Book>(`/api/classes/${classId}/books/${bookId}`, "PATCH", {
       token,
@@ -298,9 +296,9 @@ const mockClient: typeof liveClient = {
   listClassPeriods: async () => ({
     classes: [{ id: mockClass.id, name: mockClass.name, joinCode: mockClass.joinCode }]
   }),
-  createClassPeriod: async (_token, name) => ({
+  createClassPeriod: async () => ({
     classId: mockClass.id,
-    joinCode: name ? mockClass.joinCode : mockClass.joinCode
+    joinCode: mockClass.joinCode
   }),
   getClassPeriod: async () => mockClass,
   updateClassPeriod: async (_token, classId, name, minimumRankingCount) => {
@@ -313,7 +311,6 @@ const mockClient: typeof liveClient = {
   },
   deleteClassPeriod: async () => undefined,
   addBook: async () => ({ bookId: "book-new" }),
-  getBooks: async () => ({ books: mockClass.books }),
   updateBook: async (_token, _classId, bookId, title, capacity) => ({ id: bookId, title, capacity }),
   deleteBook: async () => undefined,
   joinClassPeriod: async () => ({
