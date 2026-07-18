@@ -1,8 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   closestCenter,
+  DragOverlay,
   DndContext,
   type DragEndEvent,
+  type DragStartEvent,
   KeyboardSensor,
   PointerSensor,
   useDraggable,
@@ -89,6 +91,17 @@ function buildPollUrl(joinCode: string | undefined) {
   }
 
   return `${window.location.origin}/poll/${encodeURIComponent(joinCode)}`;
+}
+
+function submitOnEnter(action: () => void | Promise<void>) {
+  return (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") {
+      return;
+    }
+
+    event.preventDefault();
+    void action();
+  };
 }
 
 function App() {
@@ -234,6 +247,7 @@ function LoggedOutLanding({
               <input
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
+                onKeyDown={submitOnEnter(submitAuth)}
                 type="email"
                 autoComplete="email"
               />
@@ -243,6 +257,7 @@ function LoggedOutLanding({
               <input
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
+                onKeyDown={submitOnEnter(submitAuth)}
                 type="password"
                 autoComplete={isSignup ? "new-password" : "current-password"}
               />
@@ -360,7 +375,11 @@ function TeacherLanding(props: TeacherLandingProps) {
         <div className="form-grid">
           <label>
             Class name
-            <input value={className} onChange={(event) => setClassName(event.target.value)} />
+            <input
+              value={className}
+              onChange={(event) => setClassName(event.target.value)}
+              onKeyDown={submitOnEnter(createClassPeriod)}
+            />
           </label>
         </div>
         <ActionButton
@@ -395,7 +414,11 @@ function TeacherLanding(props: TeacherLandingProps) {
               {editingClassId === classItem.id ? (
                 <label className="inline-edit">
                   Class name
-                  <input value={editingClassName} onChange={(event) => setEditingClassName(event.target.value)} />
+                  <input
+                    value={editingClassName}
+                    onChange={(event) => setEditingClassName(event.target.value)}
+                    onKeyDown={submitOnEnter(() => updateClass(classItem))}
+                  />
                 </label>
               ) : (
                 <button className="class-open" onClick={() => openClass(classItem)}>
@@ -653,6 +676,7 @@ function BooksView(props: BooksViewProps) {
                   const nextMinimum = Number(event.target.value);
                   setMinimumRankingCount(Math.min(bookCount, Math.max(1, nextMinimum)));
                 }}
+                onKeyDown={submitOnEnter(updateMinimumRankingCount)}
                 type="number"
                 disabled={bookCount === 0}
               />
@@ -684,7 +708,11 @@ function BooksView(props: BooksViewProps) {
         <div className="form-grid book-entry">
           <label>
             Title
-            <input value={bookTitle} onChange={(event) => setBookTitle(event.target.value)} />
+            <input
+              value={bookTitle}
+              onChange={(event) => setBookTitle(event.target.value)}
+              onKeyDown={submitOnEnter(addBook)}
+            />
           </label>
           <label>
             Capacity
@@ -692,6 +720,7 @@ function BooksView(props: BooksViewProps) {
               value={capacity}
               min={1}
               onChange={(event) => setCapacity(Number(event.target.value))}
+              onKeyDown={submitOnEnter(addBook)}
               type="number"
             />
           </label>
@@ -738,6 +767,7 @@ function StudentPoll() {
   const [loading, setLoading] = useState("");
   const [status, setStatus] = useState<StudentStatus | null>(null);
   const [rankedBookIds, setRankedBookIds] = useState<string[]>([]);
+  const [activeDragBookId, setActiveDragBookId] = useState("");
   const [existingMember, setExistingMember] = useState(false);
   const hasPreviousRankings = Boolean(status && status.rankCount > 0);
   const sensors = useSensors(
@@ -758,6 +788,10 @@ function StudentPoll() {
         .map((bookId) => books.find((book) => book.id === bookId))
         .filter((book): book is Book => Boolean(book)),
     [books, rankedBookIds]
+  );
+  const activeDragBook = useMemo(
+    () => books.find((book) => book.id === activeDragBookId) ?? null,
+    [activeDragBookId, books]
   );
 
   useEffect(() => {
@@ -827,9 +861,15 @@ function StudentPoll() {
     });
   }
 
+  function handleRankingDragStart(event: DragStartEvent) {
+    setActiveDragBookId(String(event.active.id));
+  }
+
   function handleRankingDragEnd(event: DragEndEvent) {
     const activeBookId = String(event.active.id);
     const overId = event.over?.id ? String(event.over.id) : "";
+
+    setActiveDragBookId("");
 
     if (!overId) {
       return;
@@ -893,12 +933,20 @@ function StudentPoll() {
               {!hasUrlJoinCode && (
                 <label>
                   Join code
-                  <input value={joinCode} onChange={(event) => setJoinCode(event.target.value.toUpperCase())} />
+                  <input
+                    value={joinCode}
+                    onChange={(event) => setJoinCode(event.target.value.toUpperCase())}
+                    onKeyDown={submitOnEnter(joinClassPeriod)}
+                  />
                 </label>
               )}
               <label>
                 Username
-                <input value={username} onChange={(event) => setUsername(event.target.value)} />
+                <input
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
+                  onKeyDown={submitOnEnter(joinClassPeriod)}
+                />
               </label>
             </div>
             <ActionButton
@@ -932,11 +980,18 @@ function StudentPoll() {
               <Metric label="Books" value={books.length} />
               <Metric label="Rankings required" value={minimumRankingCount} />
             </div>
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleRankingDragEnd}>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={handleRankingDragStart}
+              onDragEnd={handleRankingDragEnd}
+              onDragCancel={() => setActiveDragBookId("")}
+            >
               <div className="ranking-board">
                 <AvailableBooksDropZone books={availableBooks} />
                 <RankingDropZone books={rankedBooks} />
               </div>
+              <DragOverlay>{activeDragBook && <RankingDragOverlay book={activeDragBook} />}</DragOverlay>
             </DndContext>
             <ActionButton
               icon={<Check size={16} />}
@@ -1107,7 +1162,6 @@ function ResultsView(props: ResultsViewProps) {
                 <SortButton
                   label="Student"
                   active={assignmentSort.key === "student"}
-                  direction={assignmentSort.direction}
                   onClick={() => toggleAssignmentSort("student")}
                 />
               </th>
@@ -1115,7 +1169,6 @@ function ResultsView(props: ResultsViewProps) {
                 <SortButton
                   label="Assigned book"
                   active={assignmentSort.key === "book"}
-                  direction={assignmentSort.direction}
                   onClick={() => toggleAssignmentSort("book")}
                 />
               </th>
@@ -1225,22 +1278,11 @@ function Metric({ label, value, valueTone }: { label: string; value: string | nu
   );
 }
 
-function SortButton({
-  label,
-  active,
-  direction,
-  onClick
-}: {
-  label: string;
-  active: boolean;
-  direction: SortDirection;
-  onClick: () => void;
-}) {
+function SortButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <button type="button" className={`sort-button ${active ? "active" : ""}`} onClick={onClick}>
       <span>{label}</span>
       <ArrowUpDown size={14} />
-      {active && <small>{direction === "asc" ? "A-Z" : "Z-A"}</small>}
     </button>
   );
 }
@@ -1266,6 +1308,18 @@ function DraggableBookCard({ book }: { book: Book }) {
         <small>Capacity {book.capacity}</small>
       </span>
     </button>
+  );
+}
+
+function RankingDragOverlay({ book }: { book: Book }) {
+  return (
+    <div className="ranking-card drag-overlay-card">
+      <GripVertical size={17} />
+      <span>
+        <strong>{book.title}</strong>
+        <small>Capacity {book.capacity}</small>
+      </span>
+    </div>
   );
 }
 
@@ -1359,12 +1413,33 @@ function CopyableMetric({
 }
 
 function ClassAssignmentSpreadsheet({ grid }: { grid: ClassAssignmentGrid }) {
+  const [studentSearch, setStudentSearch] = useState("");
+  const spreadsheetRef = useRef<HTMLDivElement>(null);
+  const normalizedSearch = studentSearch.trim().toLowerCase();
+
+  useEffect(() => {
+    if (!normalizedSearch) {
+      return;
+    }
+
+    const firstMatch = spreadsheetRef.current?.querySelector('[data-student-match="true"]');
+    firstMatch?.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
+  }, [normalizedSearch]);
+
   return (
-    <div className="spreadsheet-wrap public-assignment-grid">
+    <div className="spreadsheet-wrap public-assignment-grid" ref={spreadsheetRef}>
       <div className="spreadsheet-meta">
         <Metric label="Class" value={grid.className} />
-        <Metric label="Join code" value={grid.joinCode} />
-        <Metric label="Run" value={grid.assignmentRunId ?? "-"} />
+      </div>
+      <div className="spreadsheet-search">
+        <label>
+          Find your name
+          <input
+            value={studentSearch}
+            onChange={(event) => setStudentSearch(event.target.value)}
+            placeholder="Start typing your name"
+          />
+        </label>
       </div>
       <table className="spreadsheet-table">
         <thead>
@@ -1380,9 +1455,18 @@ function ClassAssignmentSpreadsheet({ grid }: { grid: ClassAssignmentGrid }) {
               <td>
                 {row.students.length > 0 ? (
                   <div className="student-chip-list">
-                    {row.students.map((student) => (
-                      <span key={student}>{student}</span>
-                    ))}
+                    {row.students.map((student, studentIndex) => {
+                      const isMatch = Boolean(normalizedSearch && student.toLowerCase().includes(normalizedSearch));
+
+                      return (
+                        <React.Fragment key={student}>
+                          <span className={isMatch ? "student-search-match" : undefined} data-student-match={isMatch}>
+                            {student}
+                          </span>
+                          {studentIndex < row.students.length - 1 && <span className="student-separator">·</span>}
+                        </React.Fragment>
+                      );
+                    })}
                   </div>
                 ) : (
                   <span className="empty-cell">No assignment</span>
@@ -1462,6 +1546,10 @@ function EditableBookTable({
                 <input
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
+                  onKeyDown={submitOnEnter(() => {
+                    onUpdate(book, title, capacity);
+                    setEditingBookId("");
+                  })}
                   aria-label={`Title for ${book.title}`}
                 />
               ) : (
@@ -1474,6 +1562,10 @@ function EditableBookTable({
                   value={capacity}
                   min={1}
                   onChange={(event) => setCapacity(Number(event.target.value))}
+                  onKeyDown={submitOnEnter(() => {
+                    onUpdate(book, title, capacity);
+                    setEditingBookId("");
+                  })}
                   type="number"
                   aria-label={`Capacity for ${book.title}`}
                 />
@@ -1548,6 +1640,10 @@ function EditableStudentTable({
                 <input
                   value={username}
                   onChange={(event) => setUsername(event.target.value)}
+                  onKeyDown={submitOnEnter(() => {
+                    onUpdate(student, username);
+                    setEditingStudentId("");
+                  })}
                   aria-label={`Username for ${student.username}`}
                 />
               ) : (
