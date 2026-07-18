@@ -73,7 +73,14 @@ class AssignmentControllerTests {
         .andExpect(jsonPath("$.topThreeCount", equalTo(2)))
         .andExpect(jsonPath("$.worseThanThirdCount", equalTo(0)))
         .andExpect(jsonPath("$.unassignedStudentCount", equalTo(0)))
-        .andExpect(jsonPath("$.results.length()", equalTo(2)));
+        .andExpect(jsonPath("$.results.length()", equalTo(2)))
+        .andExpect(jsonPath("$.studentRankings.length()", equalTo(2)))
+        .andExpect(jsonPath("$.studentRankings[0].rankings.length()", equalTo(2)))
+        .andExpect(jsonPath("$.studentRankings[0].rankings[0].rank", equalTo(1)))
+        .andExpect(jsonPath("$.studentRankings[0].rankings[1].rank", equalTo(2)))
+        .andExpect(jsonPath("$.studentRankings[1].rankings.length()", equalTo(2)))
+        .andExpect(jsonPath("$.studentRankings[1].rankings[0].rank", equalTo(1)))
+        .andExpect(jsonPath("$.studentRankings[1].rankings[1].rank", equalTo(2)));
 
     mockMvc
         .perform(

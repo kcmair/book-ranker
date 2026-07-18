@@ -27,4 +27,6 @@ public record AssignmentResultsResponse(
     @Schema(description = "Number of students not assigned in this run", example = "0")
         int unassignedStudentCount,
     @ArraySchema(schema = @Schema(description = "A student-to-book assignment"))
-        List<AssignmentResultItemResponse> results) {}
+        List<AssignmentResultItemResponse> results,
+    @ArraySchema(schema = @Schema(description = "Submitted rankings for a student"))
+        List<StudentAssignmentRankingsResponse> studentRankings) {}

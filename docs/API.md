@@ -639,6 +639,21 @@ Response:
       "studentId": "uuid",
       "bookId": "uuid"
     }
+  ],
+  "studentRankings": [
+    {
+      "studentId": "uuid",
+      "rankings": [
+        {
+          "bookId": "uuid",
+          "rank": 1
+        },
+        {
+          "bookId": "uuid",
+          "rank": 2
+        }
+      ]
+    }
   ]
 }
 ```

@@ -1001,28 +1001,50 @@ function ResultsView(props: ResultsViewProps) {
     () => new Map((props.classPeriod?.students ?? []).map((student) => [student.id, student.username])),
     [props.classPeriod?.students]
   );
-  const unassignedStudents = useMemo(() => {
-    if (!props.latestAssignment) {
-      return [];
-    }
+  const rankingColumnCount = useMemo(() => {
+    const classBookCount = props.classPeriod?.books.length ?? 0;
+    const submittedRankingCount = Math.max(
+      0,
+      ...(props.latestAssignment?.studentRankings ?? []).map((studentRanking) => studentRanking.rankings.length)
+    );
 
-    const assignedStudentIds = new Set(props.latestAssignment.results.map((result) => result.studentId));
-    return (props.classPeriod?.students ?? []).filter((student) => !assignedStudentIds.has(student.id));
-  }, [props.latestAssignment, props.classPeriod?.students]);
+    return Math.max(classBookCount, submittedRankingCount);
+  }, [props.classPeriod?.books.length, props.latestAssignment?.studentRankings]);
+  const rankingColumnLabels = useMemo(
+    () => Array.from({ length: rankingColumnCount }, (_, index) => ordinalLabel(index + 1)),
+    [rankingColumnCount]
+  );
   const assignmentRows = useMemo(() => {
+    const assignmentsByStudentId = new Map(
+      (props.latestAssignment?.results ?? []).map((result) => [result.studentId, result.bookId])
+    );
+    const rankingsByStudentId = new Map(
+      (props.latestAssignment?.studentRankings ?? []).map((studentRanking) => [
+        studentRanking.studentId,
+        [...studentRanking.rankings].sort((left, right) => left.rank - right.rank)
+      ])
+    );
+    const students =
+      props.classPeriod?.students ??
+      (props.latestAssignment?.results ?? []).map((result) => ({
+        id: result.studentId,
+        username: studentNames.get(result.studentId) ?? result.studentId
+      }));
     const rows = [
-      ...(props.latestAssignment?.results ?? []).map((result) => ({
-        id: `${result.studentId}-${result.bookId}`,
-        student: studentNames.get(result.studentId) ?? result.studentId,
-        book: bookNames.get(result.bookId) ?? result.bookId,
-        unassigned: false
-      })),
-      ...unassignedStudents.map((student) => ({
-        id: `${student.id}-unassigned`,
-        student: student.username,
-        book: "Unassigned",
-        unassigned: true
-      }))
+      ...students.map((student) => {
+        const assignedBookId = assignmentsByStudentId.get(student.id);
+        const submittedRankings = rankingsByStudentId.get(student.id) ?? [];
+
+        return {
+          id: student.id,
+          student: student.username,
+          assignedBookId,
+          book: assignedBookId ? (bookNames.get(assignedBookId) ?? assignedBookId) : "Unassigned",
+          rankingBookIds: submittedRankings.map((ranking) => ranking.bookId),
+          rankingBooks: submittedRankings.map((ranking) => bookNames.get(ranking.bookId) ?? ranking.bookId),
+          unassigned: !assignedBookId
+        };
+      })
     ];
 
     return [...rows].sort((left, right) => {
@@ -1034,7 +1056,14 @@ function ResultsView(props: ResultsViewProps) {
 
       return assignmentSort.direction === "asc" ? compare : -compare;
     });
-  }, [assignmentSort, bookNames, props.latestAssignment?.results, studentNames, unassignedStudents]);
+  }, [
+    assignmentSort,
+    bookNames,
+    props.classPeriod?.students,
+    props.latestAssignment?.results,
+    props.latestAssignment?.studentRankings,
+    studentNames
+  ]);
 
   function toggleAssignmentSort(key: AssignmentSortKey) {
     setAssignmentSort((currentSort) => ({
@@ -1095,12 +1124,15 @@ function ResultsView(props: ResultsViewProps) {
               </th>
               <th>
                 <SortButton
-                  label="Book"
+                  label="Assigned book"
                   active={assignmentSort.key === "book"}
                   direction={assignmentSort.direction}
                   onClick={() => toggleAssignmentSort("book")}
                 />
               </th>
+              {rankingColumnLabels.map((label) => (
+                <th key={label}>{label}</th>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -1108,6 +1140,17 @@ function ResultsView(props: ResultsViewProps) {
               <tr key={row.id}>
                 <td>{row.student}</td>
                 <td className={row.unassigned ? "danger-text" : undefined}>{row.book}</td>
+                {rankingColumnLabels.map((label, index) => {
+                  const rankedBookId = row.rankingBookIds[index];
+                  const rankedBook = row.rankingBooks[index] ?? "";
+                  const isAssignedRanking = Boolean(row.assignedBookId && rankedBookId === row.assignedBookId);
+
+                  return (
+                    <td className={isAssignedRanking ? "assigned-ranking-cell" : undefined} key={`${row.id}-${label}`}>
+                      {rankedBook || <span className="empty-cell">-</span>}
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>
@@ -1657,6 +1700,12 @@ function formatPercent(value: number | undefined) {
   }
 
   return `${Math.round(value * 100)}%`;
+}
+
+function ordinalLabel(value: number) {
+  const labels = ["First", "Second", "Third", "Fourth", "Fifth", "Sixth", "Seventh", "Eighth", "Ninth", "Tenth"];
+
+  return labels[value - 1] ?? `${value}th`;
 }
 
 export default App;

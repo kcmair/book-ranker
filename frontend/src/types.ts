@@ -39,9 +39,15 @@ export type AssignmentResult = {
   bookId: string;
 };
 
+export type StudentAssignmentRankings = {
+  studentId: string;
+  rankings: RankingItem[];
+};
+
 export type AssignmentResults = AssignmentMetrics & {
   runId: string;
   results: AssignmentResult[];
+  studentRankings?: StudentAssignmentRankings[];
 };
 
 export type ClassAssignmentGridRow = {
