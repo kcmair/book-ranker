@@ -843,6 +843,10 @@ function StudentPoll() {
         return arrayMove(currentRankedBookIds, activeIndex, overIndex);
       }
 
+      if (activeIndex >= 0 && overId === "available-books-dropzone") {
+        return currentRankedBookIds.filter((bookId) => bookId !== activeBookId);
+      }
+
       if (activeIndex >= 0 || !books.some((book) => book.id === activeBookId)) {
         return currentRankedBookIds;
       }
@@ -859,10 +863,6 @@ function StudentPoll() {
 
       return currentRankedBookIds;
     });
-  }
-
-  function removeRankedBook(bookId: string) {
-    setRankedBookIds((currentRankedBookIds) => currentRankedBookIds.filter((rankedBookId) => rankedBookId !== bookId));
   }
 
   return (
@@ -934,19 +934,8 @@ function StudentPoll() {
             </div>
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleRankingDragEnd}>
               <div className="ranking-board">
-                <div className="ranking-column">
-                  <div className="ranking-column-heading">
-                    <h3>Book list</h3>
-                    <span>{availableBooks.length}</span>
-                  </div>
-                  <div className="ranking-list">
-                    {availableBooks.length === 0 && <p className="empty-state">All books are ranked.</p>}
-                    {availableBooks.map((book) => (
-                      <DraggableBookCard book={book} key={book.id} />
-                    ))}
-                  </div>
-                </div>
-                <RankingDropZone books={rankedBooks} onRemove={removeRankedBook} />
+                <AvailableBooksDropZone books={availableBooks} />
+                <RankingDropZone books={rankedBooks} />
               </div>
             </DndContext>
             <ActionButton
@@ -1280,7 +1269,26 @@ function DraggableBookCard({ book }: { book: Book }) {
   );
 }
 
-function RankingDropZone({ books, onRemove }: { books: Book[]; onRemove: (bookId: string) => void }) {
+function AvailableBooksDropZone({ books }: { books: Book[] }) {
+  const { setNodeRef, isOver } = useDroppable({ id: "available-books-dropzone" });
+
+  return (
+    <div className={`ranking-column ranking-dropzone ${isOver ? "over" : ""}`} ref={setNodeRef}>
+      <div className="ranking-column-heading">
+        <h3>Book list</h3>
+        <span>{books.length}</span>
+      </div>
+      <div className="ranking-list">
+        {books.length === 0 && <p className="empty-state">All books are ranked.</p>}
+        {books.map((book) => (
+          <DraggableBookCard book={book} key={book.id} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function RankingDropZone({ books }: { books: Book[] }) {
   const { setNodeRef, isOver } = useDroppable({ id: "ranked-books-dropzone" });
 
   return (
@@ -1293,7 +1301,7 @@ function RankingDropZone({ books, onRemove }: { books: Book[]; onRemove: (bookId
         <div className="ranking-list ranked">
           {books.length === 0 && <p className="empty-state">Drag books here in order from highest to lowest.</p>}
           {books.map((book, index) => (
-            <SortableRankedBookCard book={book} key={book.id} rank={index + 1} onRemove={onRemove} />
+            <SortableRankedBookCard book={book} key={book.id} rank={index + 1} />
           ))}
         </div>
       </SortableContext>
@@ -1301,15 +1309,7 @@ function RankingDropZone({ books, onRemove }: { books: Book[]; onRemove: (bookId
   );
 }
 
-function SortableRankedBookCard({
-  book,
-  rank,
-  onRemove
-}: {
-  book: Book;
-  rank: number;
-  onRemove: (bookId: string) => void;
-}) {
+function SortableRankedBookCard({ book, rank }: { book: Book; rank: number }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: book.id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -1317,25 +1317,22 @@ function SortableRankedBookCard({
   };
 
   return (
-    <div className={`ranking-card ranked ${isDragging ? "dragging" : ""}`} ref={setNodeRef} style={style}>
-      <button
-        type="button"
-        className="ranking-drag-handle"
-        {...listeners}
-        {...attributes}
-        aria-label={`Move ${book.title}`}
-      >
-        <GripVertical size={17} />
-      </button>
+    <button
+      type="button"
+      className={`ranking-card ranked ${isDragging ? "dragging" : ""}`}
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      aria-label={`Move ${book.title}`}
+    >
+      <GripVertical size={17} />
       <span className="ranking-position">{rank}</span>
       <span>
         <strong>{book.title}</strong>
         <small>Capacity {book.capacity}</small>
       </span>
-      <button type="button" className="ranking-remove" onClick={() => onRemove(book.id)}>
-        Remove
-      </button>
-    </div>
+    </button>
   );
 }
 

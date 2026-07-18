@@ -785,7 +785,7 @@ tr:last-child td {
 }
 
 .ranking-card.ranked {
-  grid-template-columns: 24px 32px minmax(0, 1fr) auto;
+  grid-template-columns: 22px 32px minmax(0, 1fr);
 }
 
 .ranking-card.dragging {
@@ -810,17 +810,6 @@ tr:last-child td {
   color: #61746c;
 }
 
-.ranking-drag-handle {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 32px;
-  padding: 0;
-  border: 0;
-  color: #61746c;
-  background: transparent;
-}
-
 .ranking-position {
   display: grid !important;
   place-items: center;
@@ -830,16 +819,6 @@ tr:last-child td {
   color: #ffffff;
   background: #234f3d;
   font-weight: 900;
-}
-
-.ranking-remove {
-  min-height: 32px;
-  padding: 0 10px;
-  border: 1px solid #c7d6cf;
-  border-radius: 6px;
-  color: #234f3d;
-  background: #f8faf8;
-  font-weight: 800;
 }
 
 .modal-backdrop {
