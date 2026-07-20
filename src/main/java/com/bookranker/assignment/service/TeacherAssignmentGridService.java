@@ -1,5 +1,7 @@
 package com.bookranker.assignment.service;
 
+import static com.bookranker.assignment.service.AssignmentGridSupport.normalizedBookTitle;
+
 import com.bookranker.assignment.dto.TeacherAssignmentGridColumnResponse;
 import com.bookranker.assignment.dto.TeacherAssignmentGridResponse;
 import com.bookranker.assignment.dto.TeacherAssignmentGridRowResponse;
@@ -14,7 +16,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -141,9 +142,5 @@ public class TeacherAssignmentGridService {
       }
     }
     return rows;
-  }
-
-  private String normalizedBookTitle(String title) {
-    return title.trim().toLowerCase(Locale.ROOT);
   }
 }
