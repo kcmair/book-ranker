@@ -1,10 +1,7 @@
 package com.bookranker.classperiods.service;
 
-import com.bookranker.assignment.repository.AssignmentRepository;
-import com.bookranker.assignment.repository.AssignmentRunRepository;
 import com.bookranker.auth.model.Teacher;
 import com.bookranker.auth.repository.TeacherRepository;
-import com.bookranker.books.dto.BookResponse;
 import com.bookranker.classperiods.dto.ClassPeriodDetailsResponse;
 import com.bookranker.classperiods.dto.ClassPeriodSummaryResponse;
 import com.bookranker.classperiods.dto.ClassPeriodsResponse;
@@ -13,9 +10,6 @@ import com.bookranker.classperiods.dto.CreateClassPeriodResponse;
 import com.bookranker.classperiods.dto.UpdateClassPeriodRequest;
 import com.bookranker.classperiods.model.ClassPeriod;
 import com.bookranker.classperiods.repository.ClassPeriodRepository;
-import com.bookranker.rankings.repository.RankingRepository;
-import com.bookranker.students.dto.StudentResponse;
-import com.bookranker.students.repository.StudentRepository;
 import java.security.SecureRandom;
 import java.util.Locale;
 import org.springframework.http.HttpStatus;
@@ -31,25 +25,22 @@ public class ClassPeriodService {
   private final SecureRandom secureRandom = new SecureRandom();
 
   private final ClassPeriodRepository classPeriodRepository;
+  private final ClassPeriodCleanupService classPeriodCleanupService;
+  private final ClassPeriodPolicy classPeriodPolicy;
+  private final ClassPeriodResponseMapper classPeriodResponseMapper;
   private final TeacherRepository teacherRepository;
-  private final RankingRepository rankingRepository;
-  private final StudentRepository studentRepository;
-  private final AssignmentRepository assignmentRepository;
-  private final AssignmentRunRepository assignmentRunRepository;
 
   public ClassPeriodService(
       ClassPeriodRepository classPeriodRepository,
-      TeacherRepository teacherRepository,
-      RankingRepository rankingRepository,
-      StudentRepository studentRepository,
-      AssignmentRepository assignmentRepository,
-      AssignmentRunRepository assignmentRunRepository) {
+      ClassPeriodCleanupService classPeriodCleanupService,
+      ClassPeriodPolicy classPeriodPolicy,
+      ClassPeriodResponseMapper classPeriodResponseMapper,
+      TeacherRepository teacherRepository) {
     this.classPeriodRepository = classPeriodRepository;
+    this.classPeriodCleanupService = classPeriodCleanupService;
+    this.classPeriodPolicy = classPeriodPolicy;
+    this.classPeriodResponseMapper = classPeriodResponseMapper;
     this.teacherRepository = teacherRepository;
-    this.rankingRepository = rankingRepository;
-    this.studentRepository = studentRepository;
-    this.assignmentRepository = assignmentRepository;
-    this.assignmentRunRepository = assignmentRunRepository;
   }
 
   @Transactional
@@ -70,29 +61,14 @@ public class ClassPeriodService {
     Teacher teacher = findTeacherByEmail(teacherEmail);
     return new ClassPeriodsResponse(
         classPeriodRepository.findByTeacher_EmailOrderByCreatedAtDesc(teacher.getEmail()).stream()
-            .map(
-                classPeriod ->
-                    new ClassPeriodSummaryResponse(
-                        classPeriod.getId(), classPeriod.getName(), classPeriod.getJoinCode()))
+            .map(classPeriodResponseMapper::toSummaryResponse)
             .toList());
   }
 
   @Transactional(readOnly = true)
   public ClassPeriodDetailsResponse getClassPeriod(String classPeriodId, String teacherEmail) {
     ClassPeriod classPeriod = findOwnedClassPeriod(classPeriodId, teacherEmail);
-
-    return new ClassPeriodDetailsResponse(
-        classPeriod.getId(),
-        classPeriod.getName(),
-        classPeriod.getJoinCode(),
-        effectiveMinimumRankingCount(classPeriod),
-        classPeriod.getMinimumRankingCount() != null,
-        classPeriod.getBooks().stream()
-            .map(book -> new BookResponse(book.getId(), book.getTitle(), book.getCapacity()))
-            .toList(),
-        classPeriod.getStudents().stream()
-            .map(student -> new StudentResponse(student.getId(), student.getUsername()))
-            .toList());
+    return classPeriodResponseMapper.toDetailsResponse(classPeriod);
   }
 
   @Transactional
@@ -111,26 +87,20 @@ public class ClassPeriodService {
       classPeriod.setMinimumRankingCount(request.minimumRankingCount());
     }
 
-    return new ClassPeriodSummaryResponse(
-        classPeriod.getId(), classPeriod.getName(), classPeriod.getJoinCode());
+    return classPeriodResponseMapper.toSummaryResponse(classPeriod);
   }
 
   @Transactional
   public void deleteClassPeriod(String classPeriodId, String teacherEmail) {
     ClassPeriod classPeriod = findOwnedClassPeriod(classPeriodId, teacherEmail);
-    assignmentRepository.deleteByAssignmentRunClassPeriodId(classPeriod.getId());
-    assignmentRunRepository.deleteByClassPeriodId(classPeriod.getId());
-    rankingRepository.deleteByStudentClassPeriodId(classPeriod.getId());
+    classPeriodCleanupService.clearAssignmentData(classPeriod.getId());
     classPeriodRepository.delete(classPeriod);
   }
 
   @Transactional
   public void clearStudentData(String classPeriodId, String teacherEmail) {
     ClassPeriod classPeriod = findOwnedClassPeriod(classPeriodId, teacherEmail);
-    assignmentRepository.deleteByAssignmentRunClassPeriodId(classPeriod.getId());
-    assignmentRunRepository.deleteByClassPeriodId(classPeriod.getId());
-    rankingRepository.deleteByStudentClassPeriodId(classPeriod.getId());
-    studentRepository.deleteByClassPeriodId(classPeriod.getId());
+    classPeriodCleanupService.clearStudentData(classPeriod.getId());
   }
 
   @Transactional(readOnly = true)
@@ -158,14 +128,11 @@ public class ClassPeriodService {
   }
 
   public int effectiveMinimumRankingCount(ClassPeriod classPeriod) {
-    return effectiveMinimumRankingCount(classPeriod, classPeriod.getBooks().size());
+    return classPeriodPolicy.effectiveMinimumRankingCount(classPeriod);
   }
 
   public int effectiveMinimumRankingCount(ClassPeriod classPeriod, int bookCount) {
-    if (classPeriod.getMinimumRankingCount() == null) {
-      return bookCount;
-    }
-    return Math.min(classPeriod.getMinimumRankingCount(), bookCount);
+    return classPeriodPolicy.effectiveMinimumRankingCount(classPeriod, bookCount);
   }
 
   private Teacher findTeacherByEmail(String teacherEmail) {

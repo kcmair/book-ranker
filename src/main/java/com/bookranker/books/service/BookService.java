@@ -19,14 +19,17 @@ import org.springframework.web.server.ResponseStatusException;
 public class BookService {
 
   private final BookRepository bookRepository;
+  private final BookResponseMapper bookResponseMapper;
   private final ClassPeriodService classPeriodService;
   private final RankingRepository rankingRepository;
 
   public BookService(
       BookRepository bookRepository,
+      BookResponseMapper bookResponseMapper,
       ClassPeriodService classPeriodService,
       RankingRepository rankingRepository) {
     this.bookRepository = bookRepository;
+    this.bookResponseMapper = bookResponseMapper;
     this.classPeriodService = classPeriodService;
     this.rankingRepository = rankingRepository;
   }
@@ -56,7 +59,7 @@ public class BookService {
         classPeriod.getName(),
         classPeriodService.effectiveMinimumRankingCount(classPeriod),
         bookRepository.findByClassPeriodId(classPeriodId).stream()
-            .map(book -> new BookResponse(book.getId(), book.getTitle(), book.getCapacity()))
+            .map(bookResponseMapper::toResponse)
             .toList());
   }
 
@@ -66,7 +69,7 @@ public class BookService {
     Book book = findOwnedBook(classPeriodId, bookId, teacherEmail);
     book.setTitle(request.title());
     book.setCapacity(request.capacity());
-    return new BookResponse(book.getId(), book.getTitle(), book.getCapacity());
+    return bookResponseMapper.toResponse(book);
   }
 
   @Transactional

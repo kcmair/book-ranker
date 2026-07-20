@@ -4,12 +4,8 @@ import com.bookranker.algorithm.AssignmentResult;
 import com.bookranker.algorithm.BookAssignmentSolver;
 import com.bookranker.algorithm.ClassState;
 import com.bookranker.assignment.dto.AssignmentHistoryResponse;
-import com.bookranker.assignment.dto.AssignmentRankingItemResponse;
-import com.bookranker.assignment.dto.AssignmentResultItemResponse;
 import com.bookranker.assignment.dto.AssignmentResultsResponse;
-import com.bookranker.assignment.dto.AssignmentRunSummaryResponse;
 import com.bookranker.assignment.dto.RunAssignmentResponse;
-import com.bookranker.assignment.dto.StudentAssignmentRankingsResponse;
 import com.bookranker.assignment.model.Assignment;
 import com.bookranker.assignment.model.AssignmentRun;
 import com.bookranker.assignment.model.AssignmentRunStatus;
@@ -21,9 +17,7 @@ import com.bookranker.classperiods.service.ClassPeriodService;
 import com.bookranker.rankings.repository.RankingRepository;
 import com.bookranker.students.model.Student;
 import java.util.Comparator;
-import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +30,7 @@ public class AssignmentService {
 
   private final ClassPeriodService classPeriodService;
   private final ClassStateBuilder classStateBuilder;
+  private final AssignmentResponseMapper assignmentResponseMapper;
   private final AssignmentRunRepository assignmentRunRepository;
   private final AssignmentRepository assignmentRepository;
   private final RankingRepository rankingRepository;
@@ -44,11 +39,13 @@ public class AssignmentService {
   public AssignmentService(
       ClassPeriodService classPeriodService,
       ClassStateBuilder classStateBuilder,
+      AssignmentResponseMapper assignmentResponseMapper,
       AssignmentRunRepository assignmentRunRepository,
       AssignmentRepository assignmentRepository,
       RankingRepository rankingRepository) {
     this.classPeriodService = classPeriodService;
     this.classStateBuilder = classStateBuilder;
+    this.assignmentResponseMapper = assignmentResponseMapper;
     this.assignmentRunRepository = assignmentRunRepository;
     this.assignmentRepository = assignmentRepository;
     this.rankingRepository = rankingRepository;
@@ -71,15 +68,7 @@ public class AssignmentService {
     assignmentRun.setStatus(AssignmentRunStatus.COMPLETE);
 
     AssignmentRun saved = assignmentRunRepository.save(assignmentRun);
-    return new RunAssignmentResponse(
-        saved.getId(),
-        saved.getStatus().name(),
-        saved.getTotalCost(),
-        saved.getSatisfactionScore(),
-        saved.getFirstChoiceCount(),
-        saved.getTopThreeCount(),
-        saved.getWorseThanThirdCount(),
-        saved.getUnassignedStudentCount());
+    return assignmentResponseMapper.toRunAssignmentResponse(saved);
   }
 
   @Transactional(readOnly = true)
@@ -103,35 +92,20 @@ public class AssignmentService {
         assignmentRun.getUnassignedStudentCount(),
         assignmentRepository.findByAssignmentRunId(assignmentRun.getId()).stream()
             .sorted(Comparator.comparing(assignment -> assignment.getStudent().getId()))
-            .map(
-                assignment ->
-                    new AssignmentResultItemResponse(
-                        assignment.getStudent().getId(), assignment.getBook().getId()))
+            .map(assignmentResponseMapper::toResultItemResponse)
             .toList(),
-        buildStudentRankings(classPeriodId));
+        assignmentResponseMapper.toStudentRankings(
+            rankingRepository.findByStudentClassPeriodId(classPeriodId)));
   }
 
   @Transactional(readOnly = true)
   public AssignmentHistoryResponse getAssignmentHistory(String classPeriodId, String teacherEmail) {
     classPeriodService.findOwnedClassPeriod(classPeriodId, teacherEmail);
 
-    List<AssignmentRunSummaryResponse> runs =
+    return new AssignmentHistoryResponse(
         assignmentRunRepository.findByClassPeriodIdOrderByCreatedAtDesc(classPeriodId).stream()
-            .map(
-                run ->
-                    new AssignmentRunSummaryResponse(
-                        run.getId(),
-                        run.getCreatedAt(),
-                        run.getStatus().name(),
-                        run.getTotalCost(),
-                        run.getSatisfactionScore(),
-                        run.getFirstChoiceCount(),
-                        run.getTopThreeCount(),
-                        run.getWorseThanThirdCount(),
-                        run.getUnassignedStudentCount()))
-            .toList();
-
-    return new AssignmentHistoryResponse(runs);
+            .map(assignmentResponseMapper::toRunSummaryResponse)
+            .toList());
   }
 
   private void applyMetrics(AssignmentRun assignmentRun, AssignmentResult result) {
@@ -143,26 +117,6 @@ public class AssignmentService {
     assignmentRun.setTopThreeCount(distribution.topThreeCount());
     assignmentRun.setWorseThanThirdCount(distribution.worseThanThirdCount());
     assignmentRun.setUnassignedStudentCount(result.unassignedStudents().size());
-  }
-
-  private List<StudentAssignmentRankingsResponse> buildStudentRankings(String classPeriodId) {
-    return rankingRepository.findByStudentClassPeriodId(classPeriodId).stream()
-        .collect(Collectors.groupingBy(ranking -> ranking.getStudent().getId()))
-        .entrySet()
-        .stream()
-        .map(
-            entry ->
-                new StudentAssignmentRankingsResponse(
-                    entry.getKey(),
-                    entry.getValue().stream()
-                        .sorted(Comparator.comparingInt(ranking -> ranking.getRank()))
-                        .map(
-                            ranking ->
-                                new AssignmentRankingItemResponse(
-                                    ranking.getBook().getId(), ranking.getRank()))
-                        .toList()))
-        .sorted(Comparator.comparing(StudentAssignmentRankingsResponse::studentId))
-        .toList();
   }
 
   private void persistAssignments(

@@ -12,15 +12,11 @@ import com.bookranker.rankings.repository.RankingRepository;
 import com.bookranker.students.model.Student;
 import com.bookranker.students.service.StudentService;
 import java.time.Instant;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class RankingService {
@@ -29,16 +25,19 @@ public class RankingService {
   private final BookRepository bookRepository;
   private final StudentService studentService;
   private final ClassPeriodService classPeriodService;
+  private final RankingSubmissionValidator rankingSubmissionValidator;
 
   public RankingService(
       RankingRepository rankingRepository,
       BookRepository bookRepository,
       StudentService studentService,
-      ClassPeriodService classPeriodService) {
+      ClassPeriodService classPeriodService,
+      RankingSubmissionValidator rankingSubmissionValidator) {
     this.rankingRepository = rankingRepository;
     this.bookRepository = bookRepository;
     this.studentService = studentService;
     this.classPeriodService = classPeriodService;
+    this.rankingSubmissionValidator = rankingSubmissionValidator;
   }
 
   @Transactional
@@ -52,7 +51,7 @@ public class RankingService {
     int minimumRankingCount =
         classPeriodService.effectiveMinimumRankingCount(classPeriod, booksById.size());
 
-    validateRankings(request, booksById, minimumRankingCount);
+    rankingSubmissionValidator.validate(request, booksById, minimumRankingCount);
 
     rankingRepository.deleteByStudentId(studentId);
     rankingRepository.flush();
@@ -68,43 +67,5 @@ public class RankingService {
     }
 
     return new SubmitRankingsResponse("submitted");
-  }
-
-  private void validateRankings(
-      SubmitRankingsRequest request, Map<String, Book> booksById, int minimumRankingCount) {
-    if (request.rankings().size() < minimumRankingCount) {
-      throw new ResponseStatusException(
-          HttpStatus.BAD_REQUEST,
-          "Rankings must include at least the required minimum number of books");
-    }
-    if (request.rankings().size() > booksById.size()) {
-      throw new ResponseStatusException(
-          HttpStatus.BAD_REQUEST, "Rankings cannot exceed number of books in the class");
-    }
-
-    Set<String> bookIds = new HashSet<>();
-    Set<Integer> ranks = new HashSet<>();
-
-    for (RankingItemRequest item : request.rankings()) {
-      if (!booksById.containsKey(item.bookId())) {
-        throw new ResponseStatusException(
-            HttpStatus.BAD_REQUEST, "Ranking contains a book outside the class");
-      }
-      if (!bookIds.add(item.bookId())) {
-        throw new ResponseStatusException(
-            HttpStatus.BAD_REQUEST, "Rankings cannot contain duplicate books");
-      }
-      if (!ranks.add(item.rank())) {
-        throw new ResponseStatusException(
-            HttpStatus.BAD_REQUEST, "Rankings cannot contain duplicate ranks");
-      }
-    }
-
-    for (int expectedRank = 1; expectedRank <= request.rankings().size(); expectedRank++) {
-      if (!ranks.contains(expectedRank)) {
-        throw new ResponseStatusException(
-            HttpStatus.BAD_REQUEST, "Ranks must be contiguous from 1 to submitted ranking count");
-      }
-    }
   }
 }

@@ -5,6 +5,7 @@ import com.bookranker.books.model.Book;
 import com.bookranker.books.repository.BookRepository;
 import com.bookranker.classperiods.model.ClassPeriod;
 import com.bookranker.classperiods.repository.ClassPeriodRepository;
+import com.bookranker.classperiods.service.ClassPeriodPolicy;
 import com.bookranker.rankings.model.Ranking;
 import com.bookranker.rankings.repository.RankingRepository;
 import com.bookranker.students.model.Student;
@@ -21,16 +22,19 @@ public class ClassStateBuilder {
 
   private final StudentRepository studentRepository;
   private final BookRepository bookRepository;
+  private final ClassPeriodPolicy classPeriodPolicy;
   private final RankingRepository rankingRepository;
   private final ClassPeriodRepository classPeriodRepository;
 
   public ClassStateBuilder(
       StudentRepository studentRepository,
       BookRepository bookRepository,
+      ClassPeriodPolicy classPeriodPolicy,
       RankingRepository rankingRepository,
       ClassPeriodRepository classPeriodRepository) {
     this.studentRepository = studentRepository;
     this.bookRepository = bookRepository;
+    this.classPeriodPolicy = classPeriodPolicy;
     this.rankingRepository = rankingRepository;
     this.classPeriodRepository = classPeriodRepository;
   }
@@ -83,7 +87,7 @@ public class ClassStateBuilder {
             algorithmBooks,
             rankings,
             capacities,
-            effectiveMinimumRankingCount(classPeriod, domainBooks.size()));
+            classPeriodPolicy.effectiveMinimumRankingCount(classPeriod, domainBooks.size()));
 
     return new BuiltClassState(classState, domainStudentsById, domainBooksById);
   }
@@ -92,11 +96,4 @@ public class ClassStateBuilder {
       ClassState classState,
       Map<String, Student> domainStudentsById,
       Map<String, Book> domainBooksById) {}
-
-  private int effectiveMinimumRankingCount(ClassPeriod classPeriod, int bookCount) {
-    if (classPeriod.getMinimumRankingCount() == null) {
-      return bookCount;
-    }
-    return Math.min(classPeriod.getMinimumRankingCount(), bookCount);
-  }
 }
