@@ -1,7 +1,7 @@
 package com.bookranker.assignment.controller;
 
 import com.bookranker.assignment.dto.TeacherAssignmentGridResponse;
-import com.bookranker.assignment.service.PublicAssignmentGridService;
+import com.bookranker.assignment.service.TeacherAssignmentGridService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -20,10 +20,11 @@ import org.springframework.web.bind.annotation.RestController;
 @SecurityRequirement(name = "bearerAuth")
 public class TeacherAssignmentGridController {
 
-  private final PublicAssignmentGridService publicAssignmentGridService;
+  private final TeacherAssignmentGridService teacherAssignmentGridService;
 
-  public TeacherAssignmentGridController(PublicAssignmentGridService publicAssignmentGridService) {
-    this.publicAssignmentGridService = publicAssignmentGridService;
+  public TeacherAssignmentGridController(
+      TeacherAssignmentGridService teacherAssignmentGridService) {
+    this.teacherAssignmentGridService = teacherAssignmentGridService;
   }
 
   @GetMapping
@@ -42,6 +43,6 @@ public class TeacherAssignmentGridController {
         @ApiResponse(responseCode = "401", description = "Missing or invalid bearer token")
       })
   public TeacherAssignmentGridResponse getTeacherAssignmentGrid(Principal principal) {
-    return publicAssignmentGridService.getTeacherGrid(principal.getName());
+    return teacherAssignmentGridService.getTeacherGrid(principal.getName());
   }
 }

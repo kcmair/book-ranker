@@ -2,7 +2,7 @@
 
 ## 1. System Overview
 
-This document describes the target architecture for BookRanker. The implementation may lag behind this document while the project is under active development; use `IMPLEMENTATION_ALIGNMENT.md` to track known alignment work.
+This document describes the current architecture for BookRanker as it moves from implementation into deployment.
 
 BookRanker is a classroom assignment optimization platform that allows teachers to create a list of books, define capacity constraints, and collect ranked preferences from students. The system computes an optimal assignment that maximizes student satisfaction while respecting book capacity limits.
 
@@ -13,7 +13,7 @@ The core problem is modeled as a **capacitated preference optimization problem**
 ## 2. Key Goals
 
 * Allow teachers to create classes and manage books
-* Allow students to join using a class code and submit rankings
+* Allow students to join using a class-specific poll URL and submit rankings
 * Ensure fair and optimal assignment of books to students
 * Respect book capacity constraints
 * Provide assignment transparency and satisfaction metrics
@@ -57,6 +57,7 @@ The assignment engine is a standalone Java module that is not dependent on Sprin
 * Spring Web
 * Spring Data JPA
 * PostgreSQL
+* H2 for local development and tests
 * Lombok
 * Bean Validation
 
@@ -103,6 +104,7 @@ Implementation note:
 * id (UUID)
 * name
 * join_code
+* minimum_ranking_count
 * teacher_id
 
 Relationships:
@@ -279,7 +281,7 @@ New implementation work should use these feature packages. Existing generic pack
 * No entity exposure to frontend
 * Consistent error format
 
-DTO naming conventions are defined in `IMPLEMENTATION_ALIGNMENT.md`.
+DTOs follow the package-by-feature conventions used throughout the current backend codebase.
 
 ---
 
@@ -294,18 +296,20 @@ DTO naming conventions are defined in `IMPLEMENTATION_ALIGNMENT.md`.
 ### Student Authentication
 
 * No authentication
-* Students join via class code
+* Students join via the public poll URL `/poll/{joinCode}`
 * Identified only by username within a class
 
 ---
 
 ## 10. Student Workflow
 
-1. Student receives class join code
+1. Student receives or opens the class poll URL
 2. Enters username
-3. Submits at least the class's minimum number of ranked books
-4. Can update ranking until class is locked
-5. Receives assigned book after algorithm run
+3. Drags books from the book list into the rankings column
+4. Reorders ranked books from highest to lowest
+5. Submits at least the class's minimum number of ranked books
+6. Can submit revised rankings before the teacher runs the assignment
+7. After the teacher runs the assignment, the same poll URL shows the public class assignment spreadsheet instead of the ranking form
 
 ---
 
@@ -314,10 +318,11 @@ DTO naming conventions are defined in `IMPLEMENTATION_ALIGNMENT.md`.
 1. Create account
 2. Create class
 3. Add books with capacities
-4. Share join code
-5. Monitor student participation
-6. Run assignment algorithm
-7. View results and satisfaction metrics
+4. Set the minimum rankings per student if the default should be lower than the number of books
+5. Share the class poll URL
+6. Monitor joined students
+7. Run assignment algorithm
+8. View results, satisfaction metrics, student ranking columns, and assignment spreadsheets
 
 ---
 
@@ -327,6 +332,8 @@ DTO naming conventions are defined in `IMPLEMENTATION_ALIGNMENT.md`.
 * Students below the ranking minimum are excluded from run
 * Book capacities must not be exceeded
 * Each student receives exactly one book (if possible)
+* If total eligible students exceed total book capacity, unassigned students are reported in the run metrics and UI
+* Assignment result views include each student's submitted ranking order with the assigned book highlighted
 
 ---
 
@@ -380,7 +387,7 @@ This project is designed for AI-assisted development using Codex-style agents.
 
 * Architecture is the source of truth
 
-* Agent roles, branch strategy, isolation rules, and merge rules are defined in `AI_WORKFLOW.md`
+* Historical agent roles, branch strategy, isolation rules, and merge rules are archived in `docs/archive/AI_WORKFLOW.md`
 * The canonical execution model uses five agents: Auth, Domain, Algorithm, Assignment, and Frontend
 
 * No agent may modify multiple domains without explicit instruction
@@ -404,7 +411,6 @@ A feature is complete only when:
 
 ## 19. Future Extensions (not implemented yet)
 
-* Partial ranking support
 * Email notifications
 * Real-time updates (WebSockets)
 * Class analytics dashboard

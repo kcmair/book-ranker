@@ -9,25 +9,27 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.bookranker.assignment.model.AssignmentRun;
+import com.bookranker.assignment.model.AssignmentRunStatus;
+import com.bookranker.assignment.repository.AssignmentRunRepository;
+import com.bookranker.classperiods.repository.ClassPeriodRepository;
+import com.bookranker.support.ControllerTestSupport;
+import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-class AssignmentControllerTests {
+class AssignmentControllerTests extends ControllerTestSupport {
 
-  @Autowired private MockMvc mockMvc;
+  @Autowired private AssignmentRunRepository assignmentRunRepository;
 
-  @Autowired private ObjectMapper objectMapper;
+  @Autowired private ClassPeriodRepository classPeriodRepository;
 
   @Test
   void assignmentRunRequiresAuthentication() throws Exception {
@@ -82,29 +84,43 @@ class AssignmentControllerTests {
         .andExpect(jsonPath("$.studentRankings[1].rankings[0].rank", equalTo(1)))
         .andExpect(jsonPath("$.studentRankings[1].rankings[1].rank", equalTo(2)));
 
+    AssignmentRun pendingRun = new AssignmentRun();
+    pendingRun.setClassPeriod(classPeriodRepository.findById(fixture.classId()).orElseThrow());
+    pendingRun.setStatus(AssignmentRunStatus.PENDING);
+    pendingRun.setCreatedAt(Instant.now().plusSeconds(1));
+    assignmentRunRepository.save(pendingRun);
+
+    mockMvc
+        .perform(
+            get("/api/classes/{classId}/assignments/latest", fixture.classId())
+                .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.runId", equalTo(runId)));
+
     mockMvc
         .perform(
             get("/api/classes/{classId}/assignments", fixture.classId())
                 .header(HttpHeaders.AUTHORIZATION, bearer(token)))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.runs.length()", equalTo(1)))
-        .andExpect(jsonPath("$.runs[0].runId", equalTo(runId)))
-        .andExpect(jsonPath("$.runs[0].status", equalTo("COMPLETE")))
-        .andExpect(jsonPath("$.runs[0].satisfactionScore", equalTo(1.0)))
-        .andExpect(jsonPath("$.runs[0].firstChoiceCount", equalTo(2)))
-        .andExpect(jsonPath("$.runs[0].topThreeCount", equalTo(2)))
-        .andExpect(jsonPath("$.runs[0].worseThanThirdCount", equalTo(0)))
-        .andExpect(jsonPath("$.runs[0].unassignedStudentCount", equalTo(0)));
+        .andExpect(jsonPath("$.runs.length()", equalTo(2)))
+        .andExpect(jsonPath("$.runs[0].status", equalTo("PENDING")))
+        .andExpect(jsonPath("$.runs[1].runId", equalTo(runId)))
+        .andExpect(jsonPath("$.runs[1].status", equalTo("COMPLETE")))
+        .andExpect(jsonPath("$.runs[1].satisfactionScore", equalTo(1.0)))
+        .andExpect(jsonPath("$.runs[1].firstChoiceCount", equalTo(2)))
+        .andExpect(jsonPath("$.runs[1].topThreeCount", equalTo(2)))
+        .andExpect(jsonPath("$.runs[1].worseThanThirdCount", equalTo(0)))
+        .andExpect(jsonPath("$.runs[1].unassignedStudentCount", equalTo(0)));
   }
 
   @Test
   void assignmentGridsSupportPublicClassViewAndAuthenticatedTeacherSpreadsheet() throws Exception {
     String token = registerAndLoginTeacher();
-    ClassFixture firstClass = createClassPeriod(token, "First Assignment Class");
+    ClassFixture firstClass = createClassFixture(token, "First Assignment Class");
     String firstSharedBookId = addBook(token, firstClass.classId(), "Shared Book", 2);
     String unusedBookId = addBook(token, firstClass.classId(), "Unused Book", 1);
-    String alphaStudentId = joinClass(firstClass.joinCode(), "alpha-student");
-    String betaStudentId = joinClass(firstClass.joinCode(), "beta-student");
+    String alphaStudentId = joinClass(firstClass.joinCode(), "alpha-student", firstClass.classId());
+    String betaStudentId = joinClass(firstClass.joinCode(), "beta-student", firstClass.classId());
     submitRankings(alphaStudentId, firstSharedBookId, unusedBookId);
     submitRankings(betaStudentId, firstSharedBookId, unusedBookId);
 
@@ -219,152 +235,16 @@ class AssignmentControllerTests {
   private ClassFixture createRankedClassPeriod(
       String token, String className, String firstBookTitle, String secondBookTitle)
       throws Exception {
-    ClassFixture fixture = createClassPeriod(token, className);
+    ClassFixture fixture = createClassFixture(token, className);
 
     String bookOneId = addBook(token, fixture.classId(), firstBookTitle, 1);
     String bookTwoId = addBook(token, fixture.classId(), secondBookTitle, 1);
-    String studentOneId = joinClass(fixture.joinCode(), "student-one");
-    String studentTwoId = joinClass(fixture.joinCode(), "student-two");
+    String studentOneId = joinClass(fixture.joinCode(), "student-one", fixture.classId());
+    String studentTwoId = joinClass(fixture.joinCode(), "student-two", fixture.classId());
 
     submitRankings(studentOneId, bookOneId, bookTwoId);
     submitRankings(studentTwoId, bookTwoId, bookOneId);
 
     return fixture;
   }
-
-  private ClassFixture createClassPeriod(String token, String className) throws Exception {
-    MvcResult classResult =
-        mockMvc
-            .perform(
-                post("/api/classes")
-                    .header(HttpHeaders.AUTHORIZATION, bearer(token))
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(
-                        """
-                {
-                  "name": "%s"
-                }
-                """
-                            .formatted(className)))
-            .andExpect(status().isOk())
-            .andReturn();
-
-    JsonNode classJson = objectMapper.readTree(classResult.getResponse().getContentAsString());
-    String classId = classJson.get("classId").asText();
-    String joinCode = classJson.get("joinCode").asText();
-
-    return new ClassFixture(classId, joinCode);
-  }
-
-  private String registerAndLoginTeacher() throws Exception {
-    String email = "assignment-teacher-%s@example.com".formatted(UUID.randomUUID());
-
-    mockMvc
-        .perform(
-            post("/api/teachers/register")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(
-                    """
-                {
-                  "email": "%s",
-                  "password": "password123"
-                }
-                """
-                        .formatted(email)))
-        .andExpect(status().isOk());
-
-    MvcResult loginResult =
-        mockMvc
-            .perform(
-                post("/api/teachers/login")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(
-                        """
-                {
-                  "email": "%s",
-                  "password": "password123"
-                }
-                """
-                            .formatted(email)))
-            .andExpect(status().isOk())
-            .andReturn();
-
-    return objectMapper
-        .readTree(loginResult.getResponse().getContentAsString())
-        .get("token")
-        .asText();
-  }
-
-  private String addBook(String token, String classId, String title, int capacity)
-      throws Exception {
-    MvcResult bookResult =
-        mockMvc
-            .perform(
-                post("/api/classes/{classId}/books", classId)
-                    .header(HttpHeaders.AUTHORIZATION, bearer(token))
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(
-                        """
-                {
-                  "title": "%s",
-                  "capacity": %d
-                }
-                """
-                            .formatted(title, capacity)))
-            .andExpect(status().isOk())
-            .andReturn();
-
-    return objectMapper
-        .readTree(bookResult.getResponse().getContentAsString())
-        .get("bookId")
-        .asText();
-  }
-
-  private String joinClass(String joinCode, String username) throws Exception {
-    MvcResult joinResult =
-        mockMvc
-            .perform(
-                post("/api/classes/join")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(
-                        """
-                {
-                  "joinCode": "%s",
-                  "username": "%s"
-                }
-                """
-                            .formatted(joinCode, username)))
-            .andExpect(status().isOk())
-            .andReturn();
-
-    return objectMapper
-        .readTree(joinResult.getResponse().getContentAsString())
-        .get("studentId")
-        .asText();
-  }
-
-  private void submitRankings(String studentId, String firstBookId, String secondBookId)
-      throws Exception {
-    mockMvc
-        .perform(
-            post("/api/students/{studentId}/rankings", studentId)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(
-                    """
-                {
-                  "rankings": [
-                    { "bookId": "%s", "rank": 1 },
-                    { "bookId": "%s", "rank": 2 }
-                  ]
-                }
-                """
-                        .formatted(firstBookId, secondBookId)))
-        .andExpect(status().isOk());
-  }
-
-  private String bearer(String token) {
-    return "Bearer " + token;
-  }
-
-  private record ClassFixture(String classId, String joinCode) {}
 }

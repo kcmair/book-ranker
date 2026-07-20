@@ -122,7 +122,9 @@ Why:
 SPRING_DATASOURCE_URL=
 SPRING_DATASOURCE_USERNAME=
 SPRING_DATASOURCE_PASSWORD=
-JWT_SECRET=
+SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+BOOKRANKER_JWT_SECRET=
+BOOKRANKER_CORS_ALLOWED_ORIGINS=
 ```
 
 ---
@@ -131,6 +133,7 @@ JWT_SECRET=
 
 ```env id="env_frontend"
 VITE_API_BASE_URL=
+VITE_USE_MOCKS=false
 ```
 
 ---
@@ -155,6 +158,9 @@ http://localhost:8080
 By default, `mvn spring-boot:run` activates the `local` Spring profile from the Maven Spring Boot plugin configuration. That profile uses the in-memory H2 database in `application-local.yaml`, so local development does not require PostgreSQL to be running.
 
 To run against PostgreSQL, use the default application configuration with PostgreSQL environment variables or a production-oriented profile.
+
+Current implementation note:
+The checked-in default `application.yaml` is still development-oriented: it points to local PostgreSQL defaults, uses Hibernate `ddl-auto=update`, and logs SQL. Production deployments must override those settings with environment variables before launch.
 
 ---
 
@@ -219,6 +225,7 @@ mvn clean package
 ### Step 2 — Frontend build
 
 ```bash id="build_frontend"
+cd frontend
 npm run build
 ```
 
@@ -236,7 +243,11 @@ npm run build
 ### Security
 
 * never expose DB credentials in repo
-* JWT secret must be environment variable
+* JWT secret must be provided through `BOOKRANKER_JWT_SECRET`
+* set `SPRING_JPA_HIBERNATE_DDL_AUTO=validate`
+* disable SQL logging in production
+* restrict `BOOKRANKER_CORS_ALLOWED_ORIGINS` to the deployed frontend URL
+* disable H2 console access and frame-option exceptions outside local development
 * enable HTTPS only in production
 
 ---

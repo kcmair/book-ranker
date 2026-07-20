@@ -5,7 +5,7 @@
 This document defines the target REST API for BookRanker.
 All endpoints follow REST conventions and return JSON.
 
-The current implementation may not expose every endpoint yet. Known alignment work is tracked in `IMPLEMENTATION_ALIGNMENT.md`.
+This document describes the implemented API contract unless a section is explicitly marked as future work.
 
 Base URL:
 
@@ -25,20 +25,16 @@ Base URL:
 ### Student
 
 * No authentication
-* Identified via `class_code + username`
+* Joins a class with `joinCode + username`
+* In the frontend, the join code is normally carried in the public poll URL: `/poll/{joinCode}`
 
 ---
 
-## 3. Standard Response Format
+## 3. Response Format
 
 ### Success
 
-```json id="r1"
-{
-  "data": {},
-  "timestamp": "2026-01-01T00:00:00Z"
-}
-```
+Successful endpoints return endpoint-specific DTOs directly. List endpoints return named wrapper DTOs such as `ClassPeriodsResponse`, `BooksResponse`, or `AssignmentHistoryResponse`.
 
 ### Error
 
@@ -50,6 +46,8 @@ Base URL:
   "path": "/api/rankings"
 }
 ```
+
+The current implementation uses Spring's standard error handling and validation responses. The frontend parses both common Spring error fields and validation `errors` arrays into user-facing modal messages.
 
 ---
 
@@ -178,6 +176,12 @@ Response:
 GET /api/classes/{classId}
 ```
 
+Headers:
+
+```
+Authorization: Bearer <token>
+```
+
 Response:
 
 ```json id="c4"
@@ -215,7 +219,7 @@ Request:
 }
 ```
 
-`minimumRankingCount` is optional. If omitted, the class defaults to requiring one vote per book and keeps that default as books are added. If provided, it must be at least `1` and cannot exceed the current number of books in the class.
+`minimumRankingCount` is optional. If omitted, the class requires one ranking per book by default and that default follows the current book count as books are added. If provided, it must be at least `1` and cannot exceed the current number of books in the class.
 
 Response:
 
@@ -295,6 +299,12 @@ Response:
 POST /api/classes/{classId}/books
 ```
 
+Headers:
+
+```
+Authorization: Bearer <token>
+```
+
 Request:
 
 ```json id="b1"
@@ -318,6 +328,12 @@ Response:
 
 ```
 GET /api/classes/{classId}/books
+```
+
+Headers:
+
+```
+Authorization: Bearer <token>
 ```
 
 Response:
@@ -418,9 +434,12 @@ Response:
 {
   "studentId": "uuid",
   "classId": "uuid",
+  "className": "English 12",
   "existingMember": false
 }
 ```
+
+If `existingMember` is `true`, the returned `studentId` belongs to the existing student record for that username in the class. A later ranking submission replaces that student's previous rankings.
 
 ---
 
@@ -452,6 +471,8 @@ Rules:
 * Must include at least the class's minimum ranking count
 * Ranks must be unique and contiguous
 * Submitted ranking count cannot exceed the number of books in the class
+* Each submitted `bookId` must belong to the student's class
+* A new submission replaces the student's previous rankings
 
 Response:
 
@@ -606,6 +627,9 @@ Response:
 }
 ```
 
+Frontend behavior:
+After a successful run, the teacher view switches directly to the class results view.
+
 ---
 
 ### 8.2 Get Assignment Results
@@ -726,12 +750,15 @@ Response:
 }
 ```
 
+If the class has no completed assignment run, `assignmentRunId` is `null` and `rows` still includes the class's books with empty student lists. The frontend treats `assignmentRunId: null` as "assignment not ready" and keeps students on the join/ranking flow.
+
 Rules:
 
 * Only the class identified by `joinCode` is included
 * All books for that class are included
 * Student names come from the latest completed assignment run
 * Books with no assigned students are returned with an empty `students` array
+* This endpoint is public so anyone with the poll URL can view assignment results after the teacher runs the assignment
 
 ---
 
@@ -788,13 +815,30 @@ Rules:
 * Columns represent all classes owned by the authenticated teacher
 * Rows represent all book titles used by the teacher's classes
 * The same book title is grouped into one row group across classes
+* Each cell contains at most one student name
+* If multiple students are assigned to the same book in the same class, additional rows are emitted with an empty `bookTitle`
+* Classes without a completed assignment run still appear as columns, but their cells are empty
 * Each student appears on a separate row within the book group
 * `bookTitle` is populated only on the first row for a book group
 * Empty intersections are returned as empty strings
 
 ---
 
-## 9. Validation Rules
+## 9. Frontend Route Behavior
+
+The frontend is not part of the REST API, but the following routes are part of the current user contract:
+
+* `/` shows the logged-out teacher landing page, teacher signup, and teacher login flow.
+* Authenticated teachers see a landing page with class creation, class list, and the all-class assignment spreadsheet button.
+* The teacher class workspace shows assignment controls, the student poll URL, books, and joined students.
+* `/poll/{joinCode}` shows the student join/ranking flow until the class has a completed assignment run.
+* After a completed assignment run exists, `/poll/{joinCode}` shows the public class assignment spreadsheet instead of the join/ranking flow.
+* Students rank books with drag-and-drop. They drag books from the book list into the rankings column and can reorder rankings before submitting.
+* The teacher results view shows assigned book plus one ranking column per book count so the teacher can compare each student's rankings; the assigned book is highlighted in the ranking columns.
+
+---
+
+## 10. Validation Rules
 
 ### Students
 
@@ -813,7 +857,7 @@ Rules:
 
 ---
 
-## 10. Error Codes
+## 11. Error Codes
 
 | Code | Meaning          |
 | ---- | ---------------- |
@@ -825,7 +869,7 @@ Rules:
 
 ---
 
-## 11. API Design Principles
+## 12. API Design Principles
 
 * RESTful endpoints
 * No entity exposure
@@ -835,7 +879,7 @@ Rules:
 
 ---
 
-## 11.1 DTO Naming Conventions
+## 12.1 DTO Naming Conventions
 
 Controllers must use request and response DTOs rather than JPA entities.
 
@@ -864,9 +908,8 @@ AssignmentHistoryResponse
 
 ---
 
-## 12. Future Extensions (not implemented yet)
+## 13. Future Extensions (not implemented yet)
 
-* Partial ranking support
 * WebSocket live updates for classroom dashboard
 * CSV import/export
 * Email notifications
@@ -875,11 +918,11 @@ AssignmentHistoryResponse
 
 ---
 
-## 13. Swagger / OpenAPI Documentation
+## 14. Swagger / OpenAPI Documentation
 
-BookRanker will expose an interactive API specification using **Springdoc OpenAPI (Swagger UI)**.
+BookRanker exposes an interactive API specification using **Springdoc OpenAPI (Swagger UI)**.
 
-Swagger/OpenAPI is required for the target system, but it should be added after the first stable DTO/controller pattern has been implemented. Do not annotate prototype endpoints that are expected to be reshaped.
+Swagger/OpenAPI is required for the project and is part of the current backend implementation.
 
 This ensures:
 
@@ -890,9 +933,9 @@ This ensures:
 
 ---
 
-## 13.1 Dependency
+## 14.1 Dependency
 
-After the first stable DTO/controller pattern is implemented, add the following dependency to `pom.xml`:
+The backend uses the following dependency in `pom.xml`:
 
 ```xml id="sw1"
 <dependency>
@@ -904,7 +947,7 @@ After the first stable DTO/controller pattern is implemented, add the following 
 
 ---
 
-## 13.2 Swagger UI Access
+## 14.2 Swagger UI Access
 
 Once the backend is running, Swagger UI will be available at:
 
@@ -920,7 +963,7 @@ http://localhost:8080/v3/api-docs
 
 ---
 
-## 13.3 API Documentation Strategy
+## 14.3 API Documentation Strategy
 
 All endpoints defined in this document MUST be annotated using:
 
@@ -942,22 +985,20 @@ All endpoints defined in this document MUST be annotated using:
 
 ---
 
-## 13.4 DTO Documentation
+## 14.4 DTO Documentation
 
 All request and response DTOs MUST include schema descriptions:
 
 ```java id="sw6"
 @Schema(description = "Request to create a new class")
-public class CreateClassRequest {
-
-    @Schema(description = "Name of the class", example = "English 12")
-    private String name;
-}
+public record CreateClassPeriodRequest(
+    @Schema(description = "Name of the class period", example = "English 12")
+    String name) {}
 ```
 
 ---
 
-## 13.5 Swagger Grouping Strategy
+## 14.5 Swagger Grouping Strategy
 
 Swagger UI will be grouped by domain:
 
@@ -971,7 +1012,7 @@ This aligns with the service boundaries in the codebase.
 
 ---
 
-## 13.6 Security in Swagger
+## 14.6 Security in Swagger
 
 JWT authentication will be enabled in Swagger UI:
 
@@ -994,7 +1035,7 @@ JWT authentication will be enabled in Swagger UI:
 
 ---
 
-## 13.7 Why Swagger is Required for This Project
+## 14.7 Why Swagger is Required for This Project
 
 Swagger is not optional in this architecture because:
 
@@ -1016,7 +1057,7 @@ Swagger is not optional in this architecture because:
 
 ---
 
-## 13.8 Rule for Implementation
+## 14.8 Rule for Implementation
 
 All backend controllers MUST:
 
@@ -1027,7 +1068,7 @@ All backend controllers MUST:
 
 ---
 
-## 13.9 Future Enhancement
+## 14.9 Future Enhancement
 
 Later we may extend Swagger with:
 

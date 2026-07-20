@@ -22,6 +22,7 @@ Given:
 * A capacity function `cap(b)` for each book
 * A ranking function `rank(s, b)` for ranked student-book pairs
 * A class minimum ranking count `minRankings`
+* An unranked-book fallback cost for books omitted from a valid partial ranking submission
 
 Find an assignment function for the maximum feasible set of eligible students:
 
@@ -101,7 +102,7 @@ capacity = 1
 cost = rankCost(s, b)
 ```
 
-This encodes preferences.
+This encodes preferences. If a student submitted a valid partial ranking and omitted a book, that student-book edge may still be included with a fallback cost worse than any ranked book so the solver can maximize feasible assignments when capacity requires it.
 
 ---
 
@@ -277,7 +278,8 @@ Unit tests must cover:
 
 * No student assigned twice
 * No book exceeds capacity
-* All assignments respect rankings
+* Ranked choices are preferred over unranked fallback choices
+* Students below the class minimum ranking count are excluded
 
 ---
 
@@ -295,7 +297,6 @@ Target performance:
 
 ## 15. Future Improvements (not in v1)
 
-* Partial ranking support (top-k preferences)
 * Weighted satisfaction curves (non-linear scoring)
 * Fairness constraints (avoid always-last assignment)
 * Multi-book assignments per student

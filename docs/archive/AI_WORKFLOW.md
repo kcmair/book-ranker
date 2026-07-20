@@ -1,5 +1,7 @@
 # BookRanker AI Workflow
 
+> Archived: This document is historical multi-agent implementation workflow material from the build phase. It is not required for deployment or normal project operation.
+
 ## 1. Purpose
 
 This document defines how Codex or other AI coding sessions work on BookRanker without drifting from the architecture, duplicating logic, or blocking one another.

@@ -9,3 +9,11 @@ spring:
     hibernate:
       ddl-auto: create-drop
     show-sql: false
+
+  h2:
+    console:
+      enabled: true
+
+bookranker:
+  jwt:
+    secret: bookranker-local-development-secret-change-before-production

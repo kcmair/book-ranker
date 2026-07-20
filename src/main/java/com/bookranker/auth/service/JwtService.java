@@ -19,9 +19,7 @@ public class JwtService {
   private final long expirationMillis;
 
   public JwtService(
-      @Value(
-              "${bookranker.jwt.secret:bookranker-local-development-secret-change-before-production}")
-          String secret,
+      @Value("${bookranker.jwt.secret}") String secret,
       @Value("${bookranker.jwt.expiration-millis:86400000}") long expirationMillis) {
     this.signingKey = Keys.hmacShaKeyFor(sha256(secret));
     this.expirationMillis = expirationMillis;

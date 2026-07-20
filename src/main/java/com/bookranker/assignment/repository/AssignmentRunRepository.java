@@ -8,8 +8,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface AssignmentRunRepository extends JpaRepository<AssignmentRun, String> {
 
-  Optional<AssignmentRun> findFirstByClassPeriodIdOrderByCreatedAtDesc(String classPeriodId);
-
   Optional<AssignmentRun> findFirstByClassPeriodIdAndStatusOrderByCreatedAtDesc(
       String classPeriodId, AssignmentRunStatus status);
 

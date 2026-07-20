@@ -2,7 +2,7 @@
 
 ## 1. Overview
 
-This document defines the target PostgreSQL schema. The current implementation may be incomplete while the project is under active development; use `IMPLEMENTATION_ALIGNMENT.md` for known alignment work.
+This document defines the target PostgreSQL schema and the current data-shape contract for deployment planning.
 
 This database stores teachers, classes, books, students, rankings, assignment runs, and final assignments.
 
@@ -19,8 +19,8 @@ It is designed for PostgreSQL and optimized for:
 * All primary keys are UUIDs
 * No student personally identifiable information (username only)
 * All relationships enforced via foreign keys
-* Ranking data is immutable per submission (latest submission wins)
-* Assignment runs are historical and never overwritten
+* Ranking data is replace-on-submit for each student
+* Assignment runs are historical and are not overwritten by reruns
 * Denormalization is avoided except where needed for performance
 
 ---
@@ -209,9 +209,13 @@ CREATE TABLE assignments (
 
 ### Ranking constraints
 
-* Each student must submit exactly one ranking per book in the class
-* Rank values must be continuous (1..N)
+* Each student must submit at least the class's effective minimum ranking count
+* A class with no explicit minimum ranking count uses the current number of books as the minimum
+* Submitted ranking count cannot exceed the number of books in the class
+* Rank values must be continuous from `1` through the submitted ranking count
 * No duplicate ranks per student
+* No duplicate books per student submission
+* Ranked books must belong to the student's class
 
 (Enforced at service layer; not fully enforceable in SQL without triggers)
 
@@ -267,11 +271,14 @@ This is loaded once per assignment run and passed into the MCMF solver.
 
 Initial development:
 
-* Hibernate `ddl-auto=update`
+* Local H2 uses Hibernate `ddl-auto=create-drop`
+* The current checked-in default PostgreSQL configuration uses Hibernate `ddl-auto=update` for active development
 
 Production:
 
-* Switch to Flyway migrations
+* Override Hibernate DDL mode to `validate`
+* Add Flyway migrations before deploying schema changes
+* Disable SQL logging unless it is needed for a temporary operational investigation
 
 ---
 

@@ -1,8 +1,8 @@
 package com.bookranker.students.service;
 
-import com.bookranker.books.dto.BookResponse;
 import com.bookranker.books.dto.BooksResponse;
 import com.bookranker.books.repository.BookRepository;
+import com.bookranker.books.service.BookResponseMapper;
 import com.bookranker.classperiods.model.ClassPeriod;
 import com.bookranker.classperiods.service.ClassPeriodService;
 import com.bookranker.rankings.repository.RankingRepository;
@@ -25,18 +25,24 @@ public class StudentService {
 
   private final StudentRepository studentRepository;
   private final ClassPeriodService classPeriodService;
+  private final BookResponseMapper bookResponseMapper;
   private final BookRepository bookRepository;
   private final RankingRepository rankingRepository;
+  private final StudentResponseMapper studentResponseMapper;
 
   public StudentService(
       StudentRepository studentRepository,
       ClassPeriodService classPeriodService,
+      BookResponseMapper bookResponseMapper,
       BookRepository bookRepository,
-      RankingRepository rankingRepository) {
+      RankingRepository rankingRepository,
+      StudentResponseMapper studentResponseMapper) {
     this.studentRepository = studentRepository;
     this.classPeriodService = classPeriodService;
+    this.bookResponseMapper = bookResponseMapper;
     this.bookRepository = bookRepository;
     this.rankingRepository = rankingRepository;
+    this.studentResponseMapper = studentResponseMapper;
   }
 
   @Transactional
@@ -90,7 +96,7 @@ public class StudentService {
         student.getClassPeriod().getName(),
         classPeriodService.effectiveMinimumRankingCount(student.getClassPeriod()),
         bookRepository.findByClassPeriodId(student.getClassPeriod().getId()).stream()
-            .map(book -> new BookResponse(book.getId(), book.getTitle(), book.getCapacity()))
+            .map(bookResponseMapper::toResponse)
             .toList());
   }
 
@@ -109,7 +115,7 @@ public class StudentService {
             });
 
     student.setUsername(username);
-    return new StudentResponse(student.getId(), student.getUsername());
+    return studentResponseMapper.toResponse(student);
   }
 
   @Transactional
