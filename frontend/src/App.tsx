@@ -1481,21 +1481,14 @@ function ClassAssignmentSpreadsheet({ grid }: { grid: ClassAssignmentGrid }) {
 }
 
 function TeacherAssignmentSpreadsheet({ grid }: { grid: TeacherAssignmentGrid }) {
-  const columns = grid.columns
-    .map((column, index) => ({
-      key: column.key ?? column.classId ?? `column-${index}`,
-      label: column.label ?? column.className ?? column.key ?? column.classId ?? `Column ${index + 1}`
-    }))
-    .filter((column) => column.key !== "book");
-
   return (
     <div className="spreadsheet-wrap teacher-assignment-grid">
       <table className="spreadsheet-table teacher-spreadsheet">
         <thead>
           <tr>
             <th>Book</th>
-            {columns.map((column) => (
-              <th key={column.key}>{column.label}</th>
+            {grid.columns.map((column) => (
+              <th key={column.classId}>{column.className}</th>
             ))}
           </tr>
         </thead>
@@ -1503,9 +1496,13 @@ function TeacherAssignmentSpreadsheet({ grid }: { grid: TeacherAssignmentGrid })
           {grid.rows.map((row, rowIndex) => (
             <tr key={`${row.bookTitle}-${rowIndex}`}>
               <th scope="row">{row.bookTitle}</th>
-              {columns.map((column) => (
-                <td key={column.key}>
-                  {row.cells[column.key] ? <span className="student-cell">{row.cells[column.key]}</span> : ""}
+              {grid.columns.map((column) => (
+                <td key={column.classId}>
+                  {row.cells[column.classId] ? (
+                    <span className="student-cell">{row.cells[column.classId]}</span>
+                  ) : (
+                    ""
+                  )}
                 </td>
               ))}
             </tr>
