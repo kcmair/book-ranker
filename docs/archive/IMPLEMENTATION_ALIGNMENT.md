@@ -1,5 +1,7 @@
 # BookRanker Implementation Alignment
 
+> Archived: This document is historical code/docs alignment material from the build phase. Remaining deployment-relevant guidance has been folded into the active README, deployment, API, architecture, database, and algorithm docs.
+
 ## 1. Purpose
 
 This document tracks how the current codebase should be brought into alignment with the target architecture and contracts.
@@ -146,55 +148,46 @@ Examples:
 
 ---
 
-## 7. Known Alignment Work
+## 7. Alignment Status
 
-### API Surface
+### Completed Alignment
 
-* Change class period endpoints from `/api/class` to `/api/classes`
-* Replace request params with JSON request DTOs
-* Return response DTOs instead of JPA entities
-* Apply the standard error response shape
+The current codebase has been brought into alignment on these items:
 
-### Domain Model
+* Class period endpoints use `/api/classes`
+* Controllers use request and response DTOs rather than exposing JPA entities
+* Teacher registration and login are implemented
+* Password hashing is implemented
+* JWT creation and validation are implemented
+* Teacher-owned management endpoints are protected
+* Class periods, books, students, rankings, assignment runs, and assignments are represented in the domain model
+* Assignment orchestration persists historical runs and assignment results
+* Springdoc/OpenAPI is installed and secured endpoints expose bearer-auth metadata
+* The frontend uses a single API client layer for backend communication
+* The student poll flow uses `/poll/{joinCode}` and drag-and-drop rankings
+* Public class assignment grids and authenticated teacher assignment grids are implemented
 
-* Use `username` for students instead of `name`
-* Add teacher ownership to class periods
-* Add timestamps and active flags where documented
-* Map ranking relationships to `Student` and `Book`
+### Remaining/Future Alignment Work
 
-### Auth
-
-* Add teacher registration and login
-* Add password hashing
-* Add JWT creation and validation
-* Protect teacher and management endpoints
-
-### Assignment
-
-* Add assignment run and assignment entities
-* Add algorithm input/output models
-* Add assignment orchestration service
-* Persist historical assignment results
-
-### API Documentation
-
-* Add Springdoc/OpenAPI after the first stable DTO/controller pattern is implemented
-* Annotate backend controllers once endpoint shapes are stable
+* Apply the standard project-wide error envelope if the project decides to replace Spring's default error responses
+* Add timestamps and active flags everywhere they are documented but not yet exposed by DTOs
+* Add production-grade schema migrations before deployment
+* Harden production defaults for datasource, SQL logging, H2 console access, and frame options
 
 ---
 
-## 8. Swagger Timing
+## 8. Swagger Status
 
-Swagger/OpenAPI is required for the target system, but should be added after the first stable DTO/controller pattern exists.
+Swagger/OpenAPI is part of the current backend implementation.
 
-Do not add Swagger annotations to prototype endpoints that are about to be reshaped. First align one representative endpoint with:
+Backend API changes should keep controller and DTO schema annotations aligned with `API.md`. Verify Swagger behavior against:
 
-* JSON request DTO
-* response DTO
-* validation annotations
-* standard error handling
+```text
+http://localhost:8080/swagger-ui.html
+http://localhost:8080/v3/api-docs
+```
 
-Then add Springdoc and use that endpoint as the pattern for the rest of the backend.
+Secured endpoints should require the `bearerAuth` scheme in the generated OpenAPI spec.
 
 ---
 
@@ -205,4 +198,3 @@ Local Maven runs use the `local` Spring profile and H2 by default.
 This supports fast local development without requiring PostgreSQL.
 
 Production and deployment environments use PostgreSQL through externalized datasource settings.
-

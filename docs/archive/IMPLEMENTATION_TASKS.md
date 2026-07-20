@@ -1,5 +1,7 @@
 # BookRanker Implementation Task Board
 
+> Archived: This document is historical implementation-planning material from the build phase. It is not deployment or operations guidance. Use `README.md`, `docs/DEPLOYMENT.md`, and the active domain docs for current project information.
+
 ## 1. Purpose
 
 This document defines all implementation tasks for BookRanker as a **dependency-driven execution system**.
@@ -313,7 +315,7 @@ Status values:
 
 * Owner: Frontend Agent
 * Dependencies: API.md stable (assumed)
-* Status: ⬜
+* Status: ✅
 
 ---
 
@@ -321,7 +323,7 @@ Status values:
 
 * Owner: Frontend Agent
 * Dependencies: G4 (assignment APIs optional)
-* Status: ⬜
+* Status: ✅
 
 ---
 
@@ -329,7 +331,7 @@ Status values:
 
 * Owner: Frontend Agent
 * Dependencies: D4, E3
-* Status: ⬜
+* Status: ✅
 
 ---
 
@@ -337,7 +339,76 @@ Status values:
 
 * Owner: Frontend Agent
 * Dependencies: G4
-* Status: ⬜
+* Status: ✅
+
+---
+
+### TASK H5 — Student Poll URL Flow
+
+* Owner: Frontend Agent
+* Dependencies: D4, E3
+* Status: ✅
+* Description:
+
+    * support `/poll/{joinCode}`
+    * remove join-code entry when join code is present in URL
+    * show public assignment spreadsheet after a completed assignment run exists
+    * keep students on join/ranking flow when no completed assignment run exists
+
+---
+
+### TASK H6 — Drag-and-Drop Student Rankings
+
+* Owner: Frontend Agent
+* Dependencies: H3
+* Status: ✅
+* Description:
+
+    * replace numeric ranking inputs with drag-and-drop ranking columns
+    * allow reordering within rankings
+    * allow moving books back to the book list
+    * preload previous rankings for returning students
+
+---
+
+### TASK H7 — Assignment Spreadsheet Views
+
+* Owner: Frontend Agent
+* Dependencies: G4
+* Status: ✅
+* Description:
+
+    * render public class assignment spreadsheet
+    * render authenticated teacher all-class assignment spreadsheet
+    * support student-name search in public assignment results
+
+---
+
+### TASK H8 — Teacher Result Ranking Columns
+
+* Owner: Frontend Agent
+* Dependencies: G4
+* Status: ✅
+* Description:
+
+    * show assigned book for each student
+    * show one ranking column per class book count
+    * highlight each student's assigned book within their ranking columns
+    * preserve sorting by student or assigned book
+
+---
+
+### TASK H9 — Frontend Cleanup and Error Handling
+
+* Owner: Frontend Agent
+* Dependencies: H1-H4
+* Status: ✅
+* Description:
+
+    * split the frontend into smaller React modules
+    * centralize API calls in the frontend API client layer
+    * parse backend JSON errors into dismissible modals
+    * provide confirmation dialogs for destructive remove actions
 
 ---
 
