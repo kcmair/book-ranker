@@ -59,7 +59,7 @@ export function BooksView(props: BooksViewProps) {
       return;
     }
     if (bookCount === 0) {
-      setNotice({ kind: "error", message: "Add at least one book before setting minimum votes." });
+      setNotice({ kind: "error", message: "Add at least one book before setting minimum rankings." });
       return;
     }
 
@@ -68,7 +68,7 @@ export function BooksView(props: BooksViewProps) {
       await api.updateClassPeriod(props.token, props.classId, props.classPeriod?.name ?? "", boundedMinimum);
       const details = await api.getClassPeriod(props.token, props.classId);
       props.onClassPeriod(details);
-      setNotice({ kind: "success", message: "Minimum votes updated." });
+      setNotice({ kind: "success", message: "Minimum rankings updated." });
     });
   }
 
