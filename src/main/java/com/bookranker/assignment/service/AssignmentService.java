@@ -77,7 +77,8 @@ public class AssignmentService {
     classPeriodService.findOwnedClassPeriod(classPeriodId, teacherEmail);
     AssignmentRun assignmentRun =
         assignmentRunRepository
-            .findFirstByClassPeriodIdOrderByCreatedAtDesc(classPeriodId)
+            .findFirstByClassPeriodIdAndStatusOrderByCreatedAtDesc(
+                classPeriodId, AssignmentRunStatus.COMPLETE)
             .orElseThrow(
                 () ->
                     new ResponseStatusException(HttpStatus.NOT_FOUND, "Assignment run not found"));

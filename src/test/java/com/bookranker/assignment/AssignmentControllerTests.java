@@ -9,9 +9,15 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.bookranker.assignment.model.AssignmentRun;
+import com.bookranker.assignment.model.AssignmentRunStatus;
+import com.bookranker.assignment.repository.AssignmentRunRepository;
+import com.bookranker.classperiods.repository.ClassPeriodRepository;
 import com.bookranker.support.ControllerTestSupport;
+import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
@@ -20,6 +26,10 @@ import org.springframework.test.web.servlet.MvcResult;
 @SpringBootTest
 @AutoConfigureMockMvc
 class AssignmentControllerTests extends ControllerTestSupport {
+
+  @Autowired private AssignmentRunRepository assignmentRunRepository;
+
+  @Autowired private ClassPeriodRepository classPeriodRepository;
 
   @Test
   void assignmentRunRequiresAuthentication() throws Exception {
@@ -74,19 +84,33 @@ class AssignmentControllerTests extends ControllerTestSupport {
         .andExpect(jsonPath("$.studentRankings[1].rankings[0].rank", equalTo(1)))
         .andExpect(jsonPath("$.studentRankings[1].rankings[1].rank", equalTo(2)));
 
+    AssignmentRun pendingRun = new AssignmentRun();
+    pendingRun.setClassPeriod(classPeriodRepository.findById(fixture.classId()).orElseThrow());
+    pendingRun.setStatus(AssignmentRunStatus.PENDING);
+    pendingRun.setCreatedAt(Instant.now().plusSeconds(1));
+    assignmentRunRepository.save(pendingRun);
+
+    mockMvc
+        .perform(
+            get("/api/classes/{classId}/assignments/latest", fixture.classId())
+                .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.runId", equalTo(runId)));
+
     mockMvc
         .perform(
             get("/api/classes/{classId}/assignments", fixture.classId())
                 .header(HttpHeaders.AUTHORIZATION, bearer(token)))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.runs.length()", equalTo(1)))
-        .andExpect(jsonPath("$.runs[0].runId", equalTo(runId)))
-        .andExpect(jsonPath("$.runs[0].status", equalTo("COMPLETE")))
-        .andExpect(jsonPath("$.runs[0].satisfactionScore", equalTo(1.0)))
-        .andExpect(jsonPath("$.runs[0].firstChoiceCount", equalTo(2)))
-        .andExpect(jsonPath("$.runs[0].topThreeCount", equalTo(2)))
-        .andExpect(jsonPath("$.runs[0].worseThanThirdCount", equalTo(0)))
-        .andExpect(jsonPath("$.runs[0].unassignedStudentCount", equalTo(0)));
+        .andExpect(jsonPath("$.runs.length()", equalTo(2)))
+        .andExpect(jsonPath("$.runs[0].status", equalTo("PENDING")))
+        .andExpect(jsonPath("$.runs[1].runId", equalTo(runId)))
+        .andExpect(jsonPath("$.runs[1].status", equalTo("COMPLETE")))
+        .andExpect(jsonPath("$.runs[1].satisfactionScore", equalTo(1.0)))
+        .andExpect(jsonPath("$.runs[1].firstChoiceCount", equalTo(2)))
+        .andExpect(jsonPath("$.runs[1].topThreeCount", equalTo(2)))
+        .andExpect(jsonPath("$.runs[1].worseThanThirdCount", equalTo(0)))
+        .andExpect(jsonPath("$.runs[1].unassignedStudentCount", equalTo(0)));
   }
 
   @Test

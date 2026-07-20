@@ -1,16 +1,20 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/bookranker
-    username: postgres
-    password: postgres
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
 
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: true
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:validate}
+    show-sql: false
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
+
+bookranker:
+  jwt:
+    secret: ${JWT_SECRET}
 
 server:
   port: 8080

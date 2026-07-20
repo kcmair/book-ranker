@@ -122,6 +122,7 @@ Why:
 SPRING_DATASOURCE_URL=
 SPRING_DATASOURCE_USERNAME=
 SPRING_DATASOURCE_PASSWORD=
+SPRING_JPA_HIBERNATE_DDL_AUTO=validate
 JWT_SECRET=
 ```
 
@@ -155,6 +156,7 @@ http://localhost:8080
 By default, `mvn spring-boot:run` activates the `local` Spring profile from the Maven Spring Boot plugin configuration. That profile uses the in-memory H2 database in `application-local.yaml`, so local development does not require PostgreSQL to be running.
 
 To run against PostgreSQL, use the default application configuration with PostgreSQL environment variables or a production-oriented profile.
+The default configuration requires database credentials and `JWT_SECRET`, validates the existing schema, and does not log SQL. The H2 console and its same-origin frame exception are enabled only by the `local` profile.
 
 ---
 

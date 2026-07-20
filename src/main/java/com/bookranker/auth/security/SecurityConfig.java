@@ -6,6 +6,8 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -27,38 +29,49 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 public class SecurityConfig {
 
   private final JwtAuthenticationFilter jwtAuthenticationFilter;
+  private final boolean localProfileActive;
 
-  public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
+  public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter, Environment environment) {
     this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+    this.localProfileActive = environment.acceptsProfiles(Profiles.of("local"));
   }
 
   @Bean
   public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-    return http.cors(Customizer.withDefaults())
+    http.cors(Customizer.withDefaults())
         .csrf(csrf -> csrf.disable())
-        .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.disable()))
         .sessionManagement(
             session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(
-            auth ->
-                auth.requestMatchers(HttpMethod.OPTIONS, "/**")
-                    .permitAll()
-                    .requestMatchers("/api/teachers/register", "/api/teachers/login")
-                    .permitAll()
-                    .requestMatchers("/api/teachers/me/**")
-                    .authenticated()
-                    .requestMatchers("/h2-console/**")
-                    .permitAll()
-                    .requestMatchers(HttpMethod.POST, "/api/classes/join")
-                    .permitAll()
-                    .requestMatchers("/api/students/**")
-                    .permitAll()
-                    .requestMatchers("/api/classes/**")
-                    .authenticated()
-                    .anyRequest()
-                    .permitAll())
-        .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-        .build();
+            auth -> {
+              auth.requestMatchers(HttpMethod.OPTIONS, "/**")
+                  .permitAll()
+                  .requestMatchers("/api/teachers/register", "/api/teachers/login")
+                  .permitAll()
+                  .requestMatchers("/api/teachers/me/**")
+                  .authenticated()
+                  .requestMatchers(HttpMethod.POST, "/api/classes/join")
+                  .permitAll()
+                  .requestMatchers("/api/students/**")
+                  .permitAll()
+                  .requestMatchers("/api/classes/**")
+                  .authenticated();
+
+              if (localProfileActive) {
+                auth.requestMatchers("/h2-console/**").permitAll();
+              } else {
+                auth.requestMatchers("/h2-console/**").denyAll();
+              }
+
+              auth.anyRequest().permitAll();
+            })
+        .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+
+    if (localProfileActive) {
+      http.headers(headers -> headers.frameOptions(frameOptions -> frameOptions.sameOrigin()));
+    }
+
+    return http.build();
   }
 
   @Bean

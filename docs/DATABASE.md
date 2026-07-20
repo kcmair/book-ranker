@@ -267,11 +267,12 @@ This is loaded once per assignment run and passed into the MCMF solver.
 
 Initial development:
 
-* Hibernate `ddl-auto=update`
+* Local H2 uses Hibernate `ddl-auto=create-drop`
+* The default PostgreSQL configuration uses `ddl-auto=validate`
 
 Production:
 
-* Switch to Flyway migrations
+* Add Flyway migrations before deploying schema changes
 
 ---
 
