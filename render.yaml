@@ -5,6 +5,13 @@ services:
     plan: free
     branch: main
     autoDeployTrigger: commit
+    buildFilter:
+      paths:
+        - src/**
+        - config/**
+        - pom.xml
+        - Dockerfile
+        - .dockerignore
     healthCheckPath: /actuator/health
     dockerfilePath: ./Dockerfile
     dockerContext: .

@@ -100,7 +100,16 @@ https://api.book-ranker.net/swagger-ui.html
    Build output directory: dist
    ```
 
-3. Set production variables:
+3. Under **Settings > Build > Build watch paths**, set:
+
+   ```text
+   Include paths: frontend/*
+   Exclude paths: (empty)
+   ```
+
+   This prevents backend-only and documentation-only commits from rebuilding the frontend. Cloudflare's `*` wildcard includes nested paths.
+
+4. Set production variables:
 
    ```env
    NODE_VERSION=26.5.0
@@ -108,9 +117,9 @@ https://api.book-ranker.net/swagger-ui.html
    VITE_USE_MOCKS=false
    ```
 
-4. Deploy and verify the generated `pages.dev` URL.
-5. Add `book-ranker.net` under the Pages project's custom domains.
-6. Configure `www.book-ranker.net` to redirect permanently to `https://book-ranker.net` while preserving paths and query strings.
+5. Deploy and verify the generated `pages.dev` URL.
+6. Add `book-ranker.net` under the Pages project's custom domains.
+7. Configure `www.book-ranker.net` to redirect permanently to `https://book-ranker.net` while preserving paths and query strings.
 
 The `_redirects` file ensures direct visits to routes such as `/poll/{joinCode}` load the React application.
 
@@ -166,6 +175,15 @@ Vite variables are compiled into the frontend bundle and are not secrets.
 * Review Render and Neon usage limits periodically.
 * Use Neon backups or restore features before risky schema or data changes.
 * Roll back application failures by reverting the release commit and redeploying. Do not reverse an applied migration by deleting its Flyway history entry.
+
+## Automatic Deployment Filters
+
+Both production services follow `main`, but each rebuilds only for relevant changes:
+
+* Render reads `buildFilter.paths` from `render.yaml` and rebuilds for backend source, configuration, Maven, or Docker build-input changes. Render always processes changes to `render.yaml` itself.
+* Cloudflare Pages watches `frontend/*`, including nested frontend files.
+* Documentation-only commits trigger neither application build.
+* Manual deployments and platform configuration changes can still force a build regardless of these filters.
 
 ## Local Builds
 
