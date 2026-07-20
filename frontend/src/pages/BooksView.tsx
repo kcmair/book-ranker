@@ -42,7 +42,6 @@ export function BooksView(props: BooksViewProps) {
       props.onClassPeriod(details);
       setBookTitle("");
       setCapacity(1);
-      setNotice({ kind: "success", message: "Book added." });
     });
   }
 
