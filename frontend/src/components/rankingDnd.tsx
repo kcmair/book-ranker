@@ -80,8 +80,7 @@ export function RankingDropZone({ books }: BookListProps) {
   return (
     <div className={`ranking-column ranking-dropzone ${isOver ? "over" : ""}`} ref={setNodeRef}>
       <div className="ranking-column-heading">
-        <h3>Ranking</h3>
-        <span>{books.length}</span>
+        <h3>Rankings</h3>
       </div>
       <SortableContext items={books.map((book) => book.id)} strategy={verticalListSortingStrategy}>
         <div className="ranking-list ranked">
