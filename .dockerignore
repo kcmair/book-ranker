@@ -1,0 +1,6 @@
+.git
+.idea
+.vite
+frontend
+target
+*.iml

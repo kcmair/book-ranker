@@ -96,11 +96,7 @@ export function TeacherAssignmentSpreadsheet({ grid }: TeacherAssignmentSpreadsh
               <th scope="row">{row.bookTitle}</th>
               {grid.columns.map((column) => (
                 <td key={column.classId}>
-                  {row.cells[column.classId] ? (
-                    <span className="student-cell">{row.cells[column.classId]}</span>
-                  ) : (
-                    ""
-                  )}
+                  {row.cells[column.classId] ? <span className="student-cell">{row.cells[column.classId]}</span> : ""}
                 </td>
               ))}
             </tr>

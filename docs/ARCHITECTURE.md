@@ -58,6 +58,7 @@ The assignment engine is a standalone Java module that is not dependent on Sprin
 * Spring Data JPA
 * PostgreSQL
 * H2 for local development and tests
+* Flyway database migrations
 * Lombok
 * Bean Validation
 
@@ -67,11 +68,11 @@ The assignment engine is a standalone Java module that is not dependent on Sprin
 * TypeScript
 * Vite
 
-### Hosting (Free Tier)
+### Hosting
 
-* Frontend: Vercel
-* Backend: Render
-* Database: Supabase PostgreSQL
+* Frontend and DNS: Cloudflare Pages
+* Backend: Render free Docker web service
+* Database: Neon PostgreSQL
 
 ---
 

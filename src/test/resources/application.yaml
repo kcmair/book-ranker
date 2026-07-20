@@ -8,8 +8,11 @@ spring:
   jpa:
     hibernate:
       ddl-auto: create-drop
+    open-in-view: false
     show-sql: false
 
 bookranker:
   jwt:
     secret: bookranker-test-secret
+  cors:
+    allowed-origins: http://localhost:5173,http://127.0.0.1:5173

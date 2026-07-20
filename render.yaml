@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: book-ranker-api
+    runtime: docker
+    plan: free
+    branch: main
+    autoDeployTrigger: commit
+    healthCheckPath: /actuator/health
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    domains:
+      - api.book-ranker.net
+    envVars:
+      - key: SPRING_DATASOURCE_URL
+        sync: false
+      - key: SPRING_DATASOURCE_USERNAME
+        sync: false
+      - key: SPRING_DATASOURCE_PASSWORD
+        sync: false
+      - key: SPRING_JPA_HIBERNATE_DDL_AUTO
+        value: validate
+      - key: BOOKRANKER_JWT_SECRET
+        generateValue: true
+      - key: BOOKRANKER_CORS_ALLOWED_ORIGINS
+        value: https://book-ranker.net,https://www.book-ranker.net
