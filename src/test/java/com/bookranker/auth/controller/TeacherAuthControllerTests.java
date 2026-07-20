@@ -2,6 +2,7 @@ package com.bookranker.auth.controller;
 
 import static org.hamcrest.Matchers.blankOrNullString;
 import static org.hamcrest.Matchers.not;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -20,6 +21,14 @@ import org.springframework.test.web.servlet.MockMvc;
 class TeacherAuthControllerTests {
 
   @Autowired private MockMvc mockMvc;
+
+  @Test
+  void healthCheckIsPublic() throws Exception {
+    mockMvc
+        .perform(get("/actuator/health"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("UP"));
+  }
 
   @Test
   void registerReturnsTeacherId() throws Exception {

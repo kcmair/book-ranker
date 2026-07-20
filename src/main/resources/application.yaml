@@ -7,14 +7,29 @@ spring:
   jpa:
     hibernate:
       ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:validate}
+    open-in-view: false
     show-sql: false
     properties:
       hibernate:
         format_sql: false
 
+  flyway:
+    enabled: true
+
 bookranker:
   jwt:
-    secret: ${JWT_SECRET}
+    secret: ${BOOKRANKER_JWT_SECRET}
+  cors:
+    allowed-origins: ${BOOKRANKER_CORS_ALLOWED_ORIGINS}
 
 server:
-  port: 8080
+  port: ${PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never

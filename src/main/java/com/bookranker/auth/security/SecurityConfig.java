@@ -46,6 +46,8 @@ public class SecurityConfig {
             auth -> {
               auth.requestMatchers(HttpMethod.OPTIONS, "/**")
                   .permitAll()
+                  .requestMatchers("/actuator/health")
+                  .permitAll()
                   .requestMatchers("/api/teachers/register", "/api/teachers/login")
                   .permitAll()
                   .requestMatchers("/api/teachers/me/**")
@@ -95,9 +97,7 @@ public class SecurityConfig {
 
   @Bean
   public CorsConfigurationSource corsConfigurationSource(
-      @Value(
-              "${bookranker.cors.allowed-origins:http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000}")
-          String allowedOrigins) {
+      @Value("${bookranker.cors.allowed-origins}") String allowedOrigins) {
     CorsConfiguration configuration = new CorsConfiguration();
     configuration.setAllowedOrigins(splitCsv(allowedOrigins));
     configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));

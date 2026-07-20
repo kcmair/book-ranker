@@ -16,7 +16,7 @@ It is designed for PostgreSQL and optimized for:
 
 ## 2. Core Design Principles
 
-* All primary keys are UUIDs
+* All primary keys contain generated UUID values stored as strings
 * No student personally identifiable information (username only)
 * All relationships enforced via foreign keys
 * Ranking data is replace-on-submit for each student
@@ -45,7 +45,7 @@ Stores authenticated teachers.
 
 ```sql id="t1"
 CREATE TABLE teachers (
-    id UUID PRIMARY KEY,
+    id VARCHAR(255) PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     created_at TIMESTAMP DEFAULT NOW()
@@ -66,12 +66,12 @@ Implementation note:
 
 ```sql id="t2"
 CREATE TABLE classes (
-    id UUID PRIMARY KEY,
-    teacher_id UUID NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+    id VARCHAR(255) PRIMARY KEY,
+    teacher_id VARCHAR(255) NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     join_code VARCHAR(10) UNIQUE NOT NULL,
     minimum_ranking_count INT NULL,
-    is_active BOOLEAN DEFAULT TRUE,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT NOW()
 );
 ```
@@ -89,8 +89,8 @@ Books available for assignment within a class.
 
 ```sql id="t3"
 CREATE TABLE books (
-    id UUID PRIMARY KEY,
-    class_id UUID NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+    id VARCHAR(255) PRIMARY KEY,
+    class_id VARCHAR(255) NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
     capacity INT NOT NULL CHECK (capacity > 0),
     created_at TIMESTAMP DEFAULT NOW()
@@ -109,8 +109,8 @@ Represents a participant in a class (username only).
 
 ```sql id="t4"
 CREATE TABLE students (
-    id UUID PRIMARY KEY,
-    class_id UUID NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+    id VARCHAR(255) PRIMARY KEY,
+    class_id VARCHAR(255) NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
     username VARCHAR(100) NOT NULL,
     created_at TIMESTAMP DEFAULT NOW(),
 
@@ -133,10 +133,10 @@ Each row represents a ranked book.
 
 ```sql id="t5"
 CREATE TABLE rankings (
-    id UUID PRIMARY KEY,
-    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
-    book_id UUID NOT NULL REFERENCES books(id) ON DELETE CASCADE,
-    rank INT NOT NULL,
+    id VARCHAR(255) PRIMARY KEY,
+    student_id VARCHAR(255) NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    book_id VARCHAR(255) NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    rank_value INT NOT NULL,
     submitted_at TIMESTAMP DEFAULT NOW()
 );
 ```
@@ -160,8 +160,8 @@ Represents execution of the assignment algorithm.
 
 ```sql id="t7"
 CREATE TABLE assignment_runs (
-    id UUID PRIMARY KEY,
-    class_id UUID NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+    id VARCHAR(255) PRIMARY KEY,
+    class_id VARCHAR(255) NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
     status VARCHAR(20) NOT NULL, -- PENDING, COMPLETE, FAILED
     algorithm_version VARCHAR(50),
     total_cost INTEGER NOT NULL DEFAULT 0,
@@ -186,10 +186,10 @@ Final output of the algorithm.
 
 ```sql id="t8"
 CREATE TABLE assignments (
-    id UUID PRIMARY KEY,
-    assignment_run_id UUID NOT NULL REFERENCES assignment_runs(id) ON DELETE CASCADE,
-    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
-    book_id UUID NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    id VARCHAR(255) PRIMARY KEY,
+    assignment_run_id VARCHAR(255) NOT NULL REFERENCES assignment_runs(id) ON DELETE CASCADE,
+    student_id VARCHAR(255) NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    book_id VARCHAR(255) NOT NULL REFERENCES books(id) ON DELETE CASCADE,
     created_at TIMESTAMP DEFAULT NOW(),
 
     UNIQUE(assignment_run_id, student_id)
@@ -267,17 +267,18 @@ This is loaded once per assignment run and passed into the MCMF solver.
 
 ---
 
-## 9. Migration Strategy (future)
+## 9. Migration Strategy
 
 Initial development:
 
 * Local H2 uses Hibernate `ddl-auto=create-drop`
-* The current checked-in default PostgreSQL configuration uses Hibernate `ddl-auto=update` for active development
+* The local profile disables Flyway and lets Hibernate create and drop the ephemeral H2 schema
 
 Production:
 
-* Override Hibernate DDL mode to `validate`
-* Add Flyway migrations before deploying schema changes
+* Flyway applies versioned migrations from `src/main/resources/db/migration`
+* Hibernate uses `ddl-auto=validate`
+* Every schema change requires a new forward-only migration
 * Disable SQL logging unless it is needed for a temporary operational investigation
 
 ---

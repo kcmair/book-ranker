@@ -16,6 +16,7 @@ inside the backend codebase.
 - Frontend: React, TypeScript, Vite
 - Assignment algorithm: Minimum-Cost Maximum-Flow
 - API docs: Springdoc OpenAPI / Swagger UI
+- Deployment: Cloudflare Pages, Render, Neon PostgreSQL, Flyway
 
 ## Repository Layout
 
@@ -27,6 +28,8 @@ inside the backend codebase.
 ├── frontend                         React/Vite frontend
 ├── docs                             Architecture, API, workflow, deployment docs
 ├── scripts                          Utility scripts
+├── Dockerfile                       Production backend image
+├── render.yaml                      Render service definition
 ├── pom.xml                          Maven backend build
 └── compose.yaml                     Local service support
 ```
@@ -175,6 +178,10 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=validate
 BOOKRANKER_JWT_SECRET=
 BOOKRANKER_CORS_ALLOWED_ORIGINS=
 ```
+
+Production deployments use Flyway migrations and Hibernate schema validation.
+See `docs/DEPLOYMENT.md` for the Cloudflare Pages, Render, Neon, custom-domain,
+and release-verification steps.
 
 Important frontend environment variables:
 
