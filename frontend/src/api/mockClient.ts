@@ -22,7 +22,7 @@ const mockClass: ClassPeriod = {
 const mockRun: AssignmentRun = {
   runId: "run-demo",
   createdAt: new Date().toISOString(),
-  status: "COMPLETED",
+  status: "COMPLETE",
   totalCost: 4,
   satisfactionScore: 0.88,
   firstChoiceCount: 2,
