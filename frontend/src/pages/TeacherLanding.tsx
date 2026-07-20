@@ -96,7 +96,6 @@ export function TeacherLanding(props: TeacherLandingProps) {
     return withNotice(setLoading, setNotice, "teacher-grid", async () => {
       const grid = await api.getTeacherAssignmentGrid(props.token);
       setTeacherGrid(grid);
-      setNotice({ kind: "success", message: "Assignment spreadsheet loaded." });
     });
   }
 
