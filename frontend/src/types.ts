@@ -64,10 +64,8 @@ export type ClassAssignmentGrid = {
 };
 
 export type TeacherAssignmentGridColumn = {
-  key?: string;
-  label?: string;
-  classId?: string;
-  className?: string;
+  classId: string;
+  className: string;
 };
 
 export type TeacherAssignmentGridRow = {
