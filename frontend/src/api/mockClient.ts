@@ -179,6 +179,7 @@ export const mockClient: ApiClient = {
     ]
   }),
   getAssignmentHistory: async () => ({ runs: [mockRun] }),
+  deleteAssignmentRun: async () => undefined,
   getClassAssignmentGrid: async () => mockClassAssignmentGrid,
   getTeacherAssignmentGrid: async () => mockTeacherAssignmentGrid
 };

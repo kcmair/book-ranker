@@ -260,7 +260,9 @@ DELETE /api/classes/{classId}/students
 ```
 
 Description:
-Clears a class period for a new year or semester while preserving the class period, join code, and books.
+Clears a class period for a new year or semester, then generates a new join
+code. The previous `/poll/{joinCode}` URL stops resolving so previous students
+cannot rejoin through the old link.
 
 Headers:
 
@@ -278,8 +280,11 @@ Deleted data:
 Preserved data:
 
 * Class period
-* Join code
 * Books
+
+Updated data:
+
+* Join code
 
 Response:
 
@@ -756,7 +761,33 @@ Response:
 
 ---
 
-### 8.5 Get Public Class Assignment Grid
+### 8.5 Delete Assignment Run
+
+```
+DELETE /api/classes/{classId}/assignments/{runId}
+```
+
+Description:
+Deletes one assignment run and its assignment rows. If the deleted run was the
+latest completed run, the class falls back to the previous completed run. If no
+completed runs remain, `GET /api/classes/{classId}/assignments/latest` returns
+`404` and the public poll URL returns to the student ranking flow.
+
+Headers:
+
+```
+Authorization: Bearer <token>
+```
+
+Response:
+
+```text id="a5"
+204 No Content
+```
+
+---
+
+### 8.6 Get Public Class Assignment Grid
 
 ```
 GET /api/public/classes/{joinCode}/assignment-grid
@@ -770,7 +801,7 @@ Not required.
 
 Response:
 
-```json id="a5"
+```json id="a6"
 {
   "classId": "uuid",
   "className": "English 12",
@@ -797,7 +828,7 @@ Rules:
 
 ---
 
-### 8.6 Get Teacher Assignment Spreadsheet Grid
+### 8.7 Get Teacher Assignment Spreadsheet Grid
 
 ```
 GET /api/teachers/me/assignment-grid
@@ -820,7 +851,7 @@ Returns spreadsheet-shaped JSON for all classes owned by the currently authentic
 
 Response:
 
-```json id="a6"
+```json id="a7"
 {
   "columns": [
     {

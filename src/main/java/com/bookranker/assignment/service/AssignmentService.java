@@ -138,6 +138,20 @@ public class AssignmentService {
             .toList());
   }
 
+  @Transactional
+  public void deleteAssignmentRun(String classPeriodId, String runId, String teacherEmail) {
+    classPeriodService.findOwnedClassPeriod(classPeriodId, teacherEmail);
+    AssignmentRun assignmentRun =
+        assignmentRunRepository
+            .findByIdAndClassPeriodId(runId, classPeriodId)
+            .orElseThrow(
+                () ->
+                    new ResponseStatusException(HttpStatus.NOT_FOUND, "Assignment run not found"));
+
+    assignmentRepository.deleteByAssignmentRunId(assignmentRun.getId());
+    assignmentRunRepository.delete(assignmentRun);
+  }
+
   private AssignmentResultsResponse toAssignmentResultsResponse(
       String classPeriodId, AssignmentRun assignmentRun) {
     return new AssignmentResultsResponse(

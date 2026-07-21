@@ -13,5 +13,7 @@ public interface AssignmentRepository extends JpaRepository<Assignment, String> 
 
   Optional<Assignment> findByAssignmentRunIdAndStudentId(String assignmentRunId, String studentId);
 
+  void deleteByAssignmentRunId(String assignmentRunId);
+
   void deleteByAssignmentRunClassPeriodId(String classPeriodId);
 }

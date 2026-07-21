@@ -13,12 +13,15 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.security.Principal;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -138,5 +141,31 @@ public class AssignmentController {
           String classId,
       Principal principal) {
     return assignmentService.getAssignmentHistory(classId, principal.getName());
+  }
+
+  @DeleteMapping("/assignments/{runId}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  @Operation(
+      summary = "Delete assignment run",
+      description =
+          "Deletes one assignment run and its assignment rows. If all completed runs for the class are deleted, "
+              + "student poll URLs no longer show assignment results and return to the ranking flow.",
+      security = @SecurityRequirement(name = "bearerAuth"))
+  @ApiResponses(
+      value = {
+        @ApiResponse(responseCode = "204", description = "Assignment run deleted successfully"),
+        @ApiResponse(responseCode = "401", description = "Missing or invalid bearer token"),
+        @ApiResponse(
+            responseCode = "403",
+            description = "Authenticated teacher does not own the class period"),
+        @ApiResponse(responseCode = "404", description = "Class period or assignment run not found")
+      })
+  public void deleteAssignmentRun(
+      @Parameter(description = "Class period identifier", required = true) @PathVariable
+          String classId,
+      @Parameter(description = "Assignment run identifier", required = true) @PathVariable
+          String runId,
+      Principal principal) {
+    assignmentService.deleteAssignmentRun(classId, runId, principal.getName());
   }
 }

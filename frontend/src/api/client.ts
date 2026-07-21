@@ -236,6 +236,8 @@ export const liveClient = {
     }),
   getAssignmentHistory: (token: string, classId: string) =>
     request<{ runs: AssignmentRun[] }>(`/api/classes/${classId}/assignments`, "GET", { token }),
+  deleteAssignmentRun: (token: string, classId: string, runId: string) =>
+    request<void>(`/api/classes/${classId}/assignments/${runId}`, "DELETE", { token }),
   getClassAssignmentGrid: (joinCode: string) =>
     request<ClassAssignmentGrid>(`/api/public/classes/${encodeURIComponent(joinCode)}/assignment-grid`, "GET"),
   getTeacherAssignmentGrid: (token: string) =>
