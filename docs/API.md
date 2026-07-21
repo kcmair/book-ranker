@@ -260,7 +260,9 @@ DELETE /api/classes/{classId}/students
 ```
 
 Description:
-Clears a class period for a new year or semester while preserving the class period, join code, and books.
+Clears a class period for a new year or semester, then generates a new join
+code. The previous `/poll/{joinCode}` URL stops resolving so previous students
+cannot rejoin through the old link.
 
 Headers:
 
@@ -278,8 +280,11 @@ Deleted data:
 Preserved data:
 
 * Class period
-* Join code
 * Books
+
+Updated data:
+
+* Join code
 
 Response:
 
@@ -601,7 +606,10 @@ POST /api/classes/{classId}/assign
 ```
 
 Description:
-Runs the MCMF algorithm.
+Runs the ranked-choice assignment algorithm. Students with at least one submitted
+ranking are assigned to the first ranked book in their list that still has
+capacity. Students without rankings, or whose ranked books are full, remain
+unassigned.
 
 Headers:
 
@@ -684,7 +692,39 @@ Response:
 
 ---
 
-### 8.3 Get Assignment History
+### 8.3 Reassign Student
+
+```
+PATCH /api/classes/{classId}/assignments/latest/students/{studentId}
+```
+
+Description:
+Manually moves a student in the latest completed assignment run to another book
+in the same class. This endpoint allows teacher overrides that exceed the book's
+configured capacity; the frontend displays a warning confirmation before sending
+an over-capacity reassignment.
+
+Headers:
+
+```
+Authorization: Bearer <token>
+```
+
+Request:
+
+```json id="a3"
+{
+  "bookId": "uuid"
+}
+```
+
+Response:
+Returns the refreshed assignment results using the same shape as
+`GET /api/classes/{classId}/assignments/latest`.
+
+---
+
+### 8.4 Get Assignment History
 
 ```
 GET /api/classes/{classId}/assignments
@@ -701,7 +741,7 @@ Use the **Authorize** button with the JWT returned by teacher login before tryin
 
 Response:
 
-```json id="a3"
+```json id="a4"
 {
   "runs": [
     {
@@ -721,7 +761,33 @@ Response:
 
 ---
 
-### 8.4 Get Public Class Assignment Grid
+### 8.5 Delete Assignment Run
+
+```
+DELETE /api/classes/{classId}/assignments/{runId}
+```
+
+Description:
+Deletes one assignment run and its assignment rows. If the deleted run was the
+latest completed run, the class falls back to the previous completed run. If no
+completed runs remain, `GET /api/classes/{classId}/assignments/latest` returns
+`404` and the public poll URL returns to the student ranking flow.
+
+Headers:
+
+```
+Authorization: Bearer <token>
+```
+
+Response:
+
+```text id="a5"
+204 No Content
+```
+
+---
+
+### 8.6 Get Public Class Assignment Grid
 
 ```
 GET /api/public/classes/{joinCode}/assignment-grid
@@ -735,7 +801,7 @@ Not required.
 
 Response:
 
-```json id="a4"
+```json id="a6"
 {
   "classId": "uuid",
   "className": "English 12",
@@ -762,7 +828,7 @@ Rules:
 
 ---
 
-### 8.5 Get Teacher Assignment Spreadsheet Grid
+### 8.7 Get Teacher Assignment Spreadsheet Grid
 
 ```
 GET /api/teachers/me/assignment-grid
@@ -785,7 +851,7 @@ Returns spreadsheet-shaped JSON for all classes owned by the currently authentic
 
 Response:
 
-```json id="a5"
+```json id="a7"
 {
   "columns": [
     {

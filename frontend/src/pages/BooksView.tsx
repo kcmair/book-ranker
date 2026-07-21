@@ -124,7 +124,7 @@ export function BooksView(props: BooksViewProps) {
       await api.clearClassStudents(props.token, props.classId);
       const details = await api.getClassPeriod(props.token, props.classId);
       props.onClassPeriod(details);
-      setNotice({ kind: "success", message: "Student data cleared." });
+      setNotice({ kind: "success", message: "Student data cleared and student URL updated." });
     });
   }
 
@@ -143,7 +143,7 @@ export function BooksView(props: BooksViewProps) {
   function confirmClearClassStudents() {
     setConfirmation({
       title: "Clear student data",
-      message: `Clear all student data from ${props.classPeriod?.name ?? "this class"}? This removes students, rankings, assignment results, and assignment runs while preserving the class, join code, and books.`,
+      message: `Clear all student data from ${props.classPeriod?.name ?? "this class"}? This removes students, rankings, assignment results, and assignment runs, then creates a new student URL while preserving the class and books.`,
       confirmLabel: "Clear",
       onConfirm: () => {
         setConfirmation(null);

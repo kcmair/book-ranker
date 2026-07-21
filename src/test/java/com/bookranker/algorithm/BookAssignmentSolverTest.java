@@ -107,28 +107,27 @@ class BookAssignmentSolverTest {
   }
 
   @Test
-  void excludesStudentsWithoutCompleteRankings() {
-    ClassState.Student complete = student("complete");
-    ClassState.Student incomplete = student("incomplete");
+  void assignsStudentsWithAnyRankingToFirstAvailableRankedBook() {
+    ClassState.Student first = student("first");
+    ClassState.Student second = student("second");
     ClassState.Book b1 = book("b1");
     ClassState.Book b2 = book("b2");
 
     AssignmentResult result =
         solver.solve(
             state(
-                List.of(complete, incomplete),
+                List.of(first, second),
                 List.of(b1, b2),
-                capacities(Map.of(b1, 2, b2, 2)),
-                ranks(complete, Map.of(b1, 1, b2, 2), incomplete, Map.of(b1, 1))));
+                capacities(Map.of(b1, 1, b2, 1)),
+                ranks(first, Map.of(b1, 1), second, Map.of(b1, 1, b2, 2))));
 
-    assertEquals(Map.of(complete, b1), result.assignments());
-    assertTrue(result.unassignedStudents().contains(incomplete));
+    assertEquals(Map.of(first, b1, second, b2), result.assignments());
+    assertTrue(result.unassignedStudents().isEmpty());
   }
 
   @Test
-  void allowsPartialRankingsWhenTheyMeetConfiguredMinimum() {
+  void leavesStudentUnassignedWhenAllRankedBooksAreFull() {
     ClassState.Student partial = student("partial");
-    ClassState.Student incomplete = student("incomplete");
     ClassState.Book b1 = book("b1");
     ClassState.Book b2 = book("b2");
     ClassState.Book b3 = book("b3");
@@ -136,16 +135,15 @@ class BookAssignmentSolverTest {
     AssignmentResult result =
         solver.solve(
             new ClassState(
-                List.of(partial, incomplete),
+                List.of(partial),
                 List.of(b1, b2, b3),
-                ranks(partial, Map.of(b1, 1, b2, 2), incomplete, Map.of(b1, 1)),
+                ranks(partial, Map.of(b1, 1, b2, 2)),
                 capacities(Map.of(b1, 0, b2, 0, b3, 2)),
                 2));
 
-    assertEquals(Map.of(partial, b3), result.assignments());
-    assertTrue(result.unassignedStudents().contains(incomplete));
+    assertTrue(result.assignments().isEmpty());
+    assertTrue(result.unassignedStudents().contains(partial));
     assertEquals(0.0, result.satisfactionScore());
-    assertEquals(1, result.satisfactionDistribution().worseThanThirdCount());
   }
 
   @Test

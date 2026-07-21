@@ -144,7 +144,42 @@ export const mockClient: ApiClient = {
       }
     ]
   }),
+  reassignStudent: async (_token, _classId, studentId, bookId) => ({
+    ...mockRun,
+    results: [
+      { studentId: "student-1", bookId: studentId === "student-1" ? bookId : "book-1" },
+      { studentId: "student-2", bookId: studentId === "student-2" ? bookId : "book-2" },
+      { studentId: "student-3", bookId: studentId === "student-3" ? bookId : "book-3" }
+    ],
+    studentRankings: [
+      {
+        studentId: "student-1",
+        rankings: [
+          { bookId: "book-1", rank: 1 },
+          { bookId: "book-2", rank: 2 },
+          { bookId: "book-3", rank: 3 }
+        ]
+      },
+      {
+        studentId: "student-2",
+        rankings: [
+          { bookId: "book-2", rank: 1 },
+          { bookId: "book-1", rank: 2 },
+          { bookId: "book-3", rank: 3 }
+        ]
+      },
+      {
+        studentId: "student-3",
+        rankings: [
+          { bookId: "book-2", rank: 1 },
+          { bookId: "book-3", rank: 2 },
+          { bookId: "book-1", rank: 3 }
+        ]
+      }
+    ]
+  }),
   getAssignmentHistory: async () => ({ runs: [mockRun] }),
+  deleteAssignmentRun: async () => undefined,
   getClassAssignmentGrid: async () => mockClassAssignmentGrid,
   getTeacherAssignmentGrid: async () => mockTeacherAssignmentGrid
 };

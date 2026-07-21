@@ -14,7 +14,7 @@ inside the backend codebase.
 - Backend: Java 21, Spring Boot, Maven, Spring Web, Spring Security, Spring Data
   JPA, PostgreSQL, H2 for local development and tests
 - Frontend: React, TypeScript, Vite
-- Assignment algorithm: Minimum-Cost Maximum-Flow
+- Assignment algorithm: deterministic ranked-choice assignment
 - API docs: Springdoc OpenAPI / Swagger UI
 - Deployment: Cloudflare Pages, Render, Neon PostgreSQL, Flyway
 

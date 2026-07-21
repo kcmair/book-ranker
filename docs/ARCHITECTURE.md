@@ -4,9 +4,9 @@
 
 This document describes the current architecture for BookRanker as it moves from implementation into deployment.
 
-BookRanker is a classroom assignment optimization platform that allows teachers to create a list of books, define capacity constraints, and collect ranked preferences from students. The system computes an optimal assignment that maximizes student satisfaction while respecting book capacity limits.
+BookRanker is a classroom assignment platform that allows teachers to create a list of books, define capacity constraints, and collect ranked preferences from students. The system computes a deterministic ranked-choice assignment while respecting book capacity limits.
 
-The core problem is modeled as a **capacitated preference optimization problem**, solved using a **Minimum-Cost Maximum-Flow (MCMF)** algorithm.
+The core problem is modeled as a **capacitated ranked-choice assignment problem**.
 
 ---
 
@@ -40,7 +40,7 @@ The core problem is modeled as a **capacitated preference optimization problem**
 
         |
         v
-[ Assignment Engine (MCMF Algorithm) ]
+[ Assignment Engine (Ranked-Choice Algorithm) ]
 ```
 
 The assignment engine is a standalone Java module that is not dependent on Spring.
@@ -195,17 +195,14 @@ Represents final book allocation for a given run.
 
 ### Problem Type
 
-This is a **capacitated assignment optimization problem**.
+This is a **capacitated ranked-choice assignment problem**.
 
 ### Approach
 
-We use a **Minimum-Cost Maximum-Flow (MCMF)** algorithm.
-
-### Graph Model
-
-* Source → Students (capacity = 1, cost = 0)
-* Students → Books (capacity = 1, cost = ranking score)
-* Books → Sink (capacity = book capacity)
+We use a deterministic greedy ranked-choice pass. Each student is processed once
+in class roster order and assigned to the first ranked book with remaining
+capacity. Students without rankings, or whose ranked books are full, remain
+unassigned.
 
 ### Cost Function
 
@@ -216,9 +213,8 @@ We use a **Minimum-Cost Maximum-Flow (MCMF)** algorithm.
 | 3    | 2    |
 | n    | n-1  |
 
-Objective:
-
-* Minimize total cost (maximize satisfaction)
+The cost function is used for reporting satisfaction metrics after assignments
+and manual reassignments.
 
 ---
 

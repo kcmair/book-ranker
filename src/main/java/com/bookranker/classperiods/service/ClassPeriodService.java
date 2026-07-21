@@ -101,6 +101,7 @@ public class ClassPeriodService {
   public void clearStudentData(String classPeriodId, String teacherEmail) {
     ClassPeriod classPeriod = findOwnedClassPeriod(classPeriodId, teacherEmail);
     classPeriodCleanupService.clearStudentData(classPeriod.getId());
+    classPeriod.setJoinCode(generateUniqueJoinCode());
   }
 
   @Transactional(readOnly = true)

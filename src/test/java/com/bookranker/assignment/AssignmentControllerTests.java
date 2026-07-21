@@ -5,6 +5,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -21,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 
 @SpringBootTest
@@ -114,6 +116,81 @@ class AssignmentControllerTests extends ControllerTestSupport {
   }
 
   @Test
+  void teacherCanDeleteAssignmentRunsAndResetPublicAssignmentView() throws Exception {
+    String token = registerAndLoginTeacher();
+    ClassFixture fixture = createRankedClassPeriod(token);
+
+    String firstRunId =
+        objectMapper
+            .readTree(
+                mockMvc
+                    .perform(
+                        post("/api/classes/{classId}/assign", fixture.classId())
+                            .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                    .andExpect(status().isOk())
+                    .andReturn()
+                    .getResponse()
+                    .getContentAsString())
+            .get("assignmentRunId")
+            .asText();
+    String secondRunId =
+        objectMapper
+            .readTree(
+                mockMvc
+                    .perform(
+                        post("/api/classes/{classId}/assign", fixture.classId())
+                            .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                    .andExpect(status().isOk())
+                    .andReturn()
+                    .getResponse()
+                    .getContentAsString())
+            .get("assignmentRunId")
+            .asText();
+
+    mockMvc
+        .perform(
+            get("/api/classes/{classId}/assignments/latest", fixture.classId())
+                .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.runId", equalTo(secondRunId)));
+
+    mockMvc
+        .perform(
+            delete("/api/classes/{classId}/assignments/{runId}", fixture.classId(), secondRunId)
+                .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+        .andExpect(status().isNoContent());
+
+    mockMvc
+        .perform(
+            get("/api/classes/{classId}/assignments/latest", fixture.classId())
+                .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.runId", equalTo(firstRunId)));
+
+    mockMvc
+        .perform(get("/api/public/classes/{joinCode}/assignment-grid", fixture.joinCode()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.assignmentRunId", equalTo(firstRunId)));
+
+    mockMvc
+        .perform(
+            delete("/api/classes/{classId}/assignments/{runId}", fixture.classId(), firstRunId)
+                .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+        .andExpect(status().isNoContent());
+
+    mockMvc
+        .perform(
+            get("/api/classes/{classId}/assignments/latest", fixture.classId())
+                .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+        .andExpect(status().isNotFound());
+
+    mockMvc
+        .perform(get("/api/public/classes/{joinCode}/assignment-grid", fixture.joinCode()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.assignmentRunId").doesNotExist());
+  }
+
+  @Test
   void assignmentGridsSupportPublicClassViewAndAuthenticatedTeacherSpreadsheet() throws Exception {
     String token = registerAndLoginTeacher();
     ClassFixture firstClass = createClassFixture(token, "First Assignment Class");
@@ -185,6 +262,77 @@ class AssignmentControllerTests extends ControllerTestSupport {
   }
 
   @Test
+  void teacherCanManuallyReassignStudentBeyondLatestAssignmentCapacity() throws Exception {
+    String token = registerAndLoginTeacher();
+    ClassFixture fixture = createClassFixture(token, "Manual Reassignment Class");
+    String firstBookId = addBook(token, fixture.classId(), "First Book", 2);
+    String secondBookId = addBook(token, fixture.classId(), "Second Book", 1);
+    String firstStudentId = joinClass(fixture.joinCode(), "first-student", fixture.classId());
+    String secondStudentId = joinClass(fixture.joinCode(), "second-student", fixture.classId());
+    submitRankings(firstStudentId, firstBookId, secondBookId);
+    submitRankings(secondStudentId, firstBookId, secondBookId);
+
+    mockMvc
+        .perform(
+            post("/api/classes/{classId}/assign", fixture.classId())
+                .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.firstChoiceCount", equalTo(2)));
+
+    mockMvc
+        .perform(
+            patch(
+                    "/api/classes/{classId}/assignments/latest/students/{studentId}",
+                    fixture.classId(),
+                    firstStudentId)
+                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "bookId": "%s"
+                    }
+                    """
+                        .formatted(secondBookId)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.results.length()", equalTo(2)))
+        .andExpect(jsonPath("$.firstChoiceCount", equalTo(1)))
+        .andExpect(jsonPath("$.topThreeCount", equalTo(2)))
+        .andExpect(jsonPath("$.totalCost", equalTo(1)))
+        .andExpect(jsonPath("$.unassignedStudentCount", equalTo(0)));
+
+    mockMvc
+        .perform(
+            get("/api/classes/{classId}/assignments/latest", fixture.classId())
+                .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.firstChoiceCount", equalTo(1)))
+        .andExpect(jsonPath("$.totalCost", equalTo(1)));
+
+    mockMvc
+        .perform(
+            patch(
+                    "/api/classes/{classId}/assignments/latest/students/{studentId}",
+                    fixture.classId(),
+                    secondStudentId)
+                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "bookId": "%s"
+                    }
+                    """
+                        .formatted(secondBookId)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.results.length()", equalTo(2)))
+        .andExpect(jsonPath("$.firstChoiceCount", equalTo(0)))
+        .andExpect(jsonPath("$.topThreeCount", equalTo(2)))
+        .andExpect(jsonPath("$.totalCost", equalTo(2)))
+        .andExpect(jsonPath("$.unassignedStudentCount", equalTo(0)));
+  }
+
+  @Test
   void teacherCanClearStudentDataForNewTerm() throws Exception {
     String token = registerAndLoginTeacher();
     ClassFixture fixture = createRankedClassPeriod(token);
@@ -210,6 +358,7 @@ class AssignmentControllerTests extends ControllerTestSupport {
             get("/api/classes/{classId}", fixture.classId())
                 .header(HttpHeaders.AUTHORIZATION, bearer(token)))
         .andExpect(status().isOk())
+        .andExpect(jsonPath("$.joinCode", not(equalTo(fixture.joinCode()))))
         .andExpect(jsonPath("$.books.length()", equalTo(2)))
         .andExpect(jsonPath("$.students.length()", equalTo(0)));
 
@@ -221,6 +370,24 @@ class AssignmentControllerTests extends ControllerTestSupport {
 
     mockMvc
         .perform(get("/api/public/classes/{joinCode}/assignment-grid", fixture.joinCode()))
+        .andExpect(status().isNotFound());
+
+    String newJoinCode =
+        objectMapper
+            .readTree(
+                mockMvc
+                    .perform(
+                        get("/api/classes/{classId}", fixture.classId())
+                            .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                    .andExpect(status().isOk())
+                    .andReturn()
+                    .getResponse()
+                    .getContentAsString())
+            .get("joinCode")
+            .asText();
+
+    mockMvc
+        .perform(get("/api/public/classes/{joinCode}/assignment-grid", newJoinCode))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.assignmentRunId").doesNotExist())
         .andExpect(jsonPath("$.rows.length()", equalTo(2)))

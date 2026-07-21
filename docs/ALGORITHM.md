@@ -2,14 +2,14 @@
 
 ## 1. Overview
 
-BookRanker uses a **Minimum-Cost Maximum-Flow (MCMF)** algorithm to assign students to books under capacity constraints while maximizing overall student satisfaction.
+BookRanker assigns students to books with a deterministic ranked-choice pass.
+Each student is considered once. If the student has submitted any rankings, the
+solver assigns that student to the first ranked book in their list that still has
+available capacity.
 
-This is a constrained optimization problem:
-
-* Each eligible student gets exactly one book when total capacity allows
-* Each book has a maximum capacity
-* Each eligible student provides at least the class's minimum number of ranked books
-* Goal: maximize total preference satisfaction
+The algorithm intentionally does not assign a student to an unranked fallback
+book. Students with no rankings, or whose ranked books are already full, remain
+unassigned.
 
 ---
 
@@ -21,32 +21,44 @@ Given:
 * A set of books `B`
 * A capacity function `cap(b)` for each book
 * A ranking function `rank(s, b)` for ranked student-book pairs
-* A class minimum ranking count `minRankings`
-* An unranked-book fallback cost for books omitted from a valid partial ranking submission
 
-Find an assignment function for the maximum feasible set of eligible students:
+Find an assignment function:
 
-```
-f: S_assigned → B
+```text id="alg1"
+f: S_assigned -> B
 ```
 
 such that:
 
 * Each assigned student is assigned exactly one book
-
+* Each assigned book was ranked by that student
 * For each book `b`:
 
-  ```
-  |{ s ∈ S : f(s) = b }| ≤ cap(b)
-  ```
-
-* Total cost is minimized.
+```text id="alg2"
+|{ s in S : f(s) = b }| <= cap(b)
+```
 
 ---
 
-## 3. Optimization Objective
+## 3. Assignment Rule
 
-We convert rankings into costs:
+For each student, in class roster order:
+
+1. Read the student's submitted rankings.
+2. Sort ranked books from highest preference to lowest.
+3. Assign the first ranked book with remaining capacity.
+4. If no ranked book has remaining capacity, leave the student unassigned.
+
+This means any student who has made ranking choices can be assigned with a
+partial ranking list. The class minimum ranking count remains useful as UI and
+validation guidance, but the assignment solver does not require a complete
+ranking list.
+
+---
+
+## 4. Cost and Metrics
+
+Rankings are converted into costs for reporting:
 
 | Rank | Cost |
 | ---- | ---- |
@@ -55,106 +67,39 @@ We convert rankings into costs:
 | 3    | 2    |
 | n    | n-1  |
 
-### Objective:
+The assignment run reports:
 
-Minimize:
+* Total cost
+* Satisfaction score
+* First-choice count
+* Top-three count
+* Worse-than-third count
+* Unassigned student count
 
-```
-Σ cost(rank(s, f(s)))
-```
-
-This is equivalent to maximizing satisfaction.
-
----
-
-## 4. Graph Model (Flow Network)
-
-We construct a directed graph:
-
-### Nodes:
-
-* Source node `S`
-* Student nodes `s ∈ S`
-* Book nodes `b ∈ B`
-* Sink node `T`
+Manual teacher reassignments recalculate these metrics for the latest completed
+assignment run. Manual reassignments may intentionally exceed book capacity
+after teacher confirmation; the automatic solver still respects capacity.
 
 ---
 
-### Edges:
-
-#### 1. Source → Students
-
-```
-S → s
-capacity = 1
-cost = 0
-```
-
-Each student can only be assigned once.
-
----
-
-#### 2. Students → Books
-
-```
-s → b
-capacity = 1
-cost = rankCost(s, b)
-```
-
-This encodes preferences. If a student submitted a valid partial ranking and omitted a book, that student-book edge may still be included with a fallback cost worse than any ranked book so the solver can maximize feasible assignments when capacity requires it.
-
----
-
-#### 3. Books → Sink
-
-```
-b → T
-capacity = cap(b)
-cost = 0
-```
-
-This enforces book capacity constraints.
-
----
-
-## 5. Algorithm Choice
-
-We use:
-
-> **Successive Shortest Path Min-Cost Max-Flow**
-
-### Why:
-
-* Simple to implement in Java
-* Efficient for typical classroom sizes
-* Deterministic output
-* Well-understood for interviews
-
----
-
-## 6. Expected Complexity
+## 5. Expected Complexity
 
 Let:
 
-* `V = number of students + books + 2`
-* `E = student-book edges + others`
+* `S = number of students`
+* `R = total submitted ranking rows`
 
-Complexity:
+The solver sorts each student's rankings and scans them once:
 
+```text id="alg3"
+O(R log R_student)
 ```
-O(F × E log V)
-```
 
-Where:
-
-* `F = number of students`
-
-For typical class sizes (≤ 2000 students), this is fast enough in practice.
+For normal classroom sizes this is effectively instantaneous.
 
 ---
 
-## 7. Input Representation
+## 6. Input Representation
 
 Before running the algorithm, the service constructs:
 
@@ -169,11 +114,12 @@ class ClassState {
 
 ---
 
-## 8. Output Representation
+## 7. Output Representation
 
 ```java id="out1"
 class AssignmentResult {
     Map<Student, Book> assignments;
+    Set<Student> unassignedStudents;
     int totalCost;
     double satisfactionScore;
 }
@@ -181,137 +127,50 @@ class AssignmentResult {
 
 ---
 
-## 9. Edge Cases
+## 8. Edge Cases
 
-### 9.1 Not enough capacity
+### 8.1 Not enough capacity
 
-If:
-
-```
-Σ cap(book) < number of students
-```
-
-Then:
+If total ranked demand exceeds available book capacity:
 
 * Some students remain unassigned
-* These are explicitly returned as “unassigned”
+* These are explicitly returned as unassigned
+
+### 8.2 No submitted rankings
+
+Students with no submitted rankings:
+
+* Are not assigned
+* Are counted as unassigned
+
+### 8.3 Equal choices
+
+The solver is deterministic because it processes students in the supplied class
+state order and books in submitted ranking order.
 
 ---
 
-### 9.2 Rankings below the class minimum
-
-Students below the class minimum ranking count:
-
-* Excluded from graph only when their submitted ranking count is below `minRankings`
-* Reported in assignment run summary
-
----
-
-### 9.3 Equal optimal solutions
-
-If multiple optimal solutions exist:
-
-* The algorithm will return the first found path-based solution
-* No additional tie-breaking required in v1
-
----
-
-## 10. Satisfaction Metrics
-
-After solving, we compute:
-
-### Average satisfaction score
-
-```
-avg = 1 - (totalCost / maxPossibleCost)
-```
-
-### Distribution
-
-* % receiving 1st choice
-* % receiving top 3 choices
-* % receiving worse than 3rd choice
-
----
-
-## 11. Implementation Requirements
+## 9. Implementation Requirements
 
 The algorithm MUST:
 
-* Be implemented in pure Java (no Spring dependencies)
+* Be implemented in pure Java with no Spring dependencies
 * Be deterministic
 * Be unit-testable in isolation
-* Accept a fully materialized ClassState object
-* Return an AssignmentResult object
+* Accept a fully materialized `ClassState` object
+* Return an `AssignmentResult` object
 
 ---
 
-## 12. Integration Boundary
+## 10. Integration Boundary
 
-### Allowed:
+### Allowed
 
-* Input: ClassState (from service layer)
-* Output: AssignmentResult
+* Input: `ClassState` from the service layer
+* Output: `AssignmentResult`
 
-### NOT allowed:
+### Not allowed
 
 * Direct database access
 * Spring annotations
 * HTTP awareness
-* DTO usage
-
----
-
-## 13. Testing Strategy
-
-Unit tests must cover:
-
-### Core cases:
-
-* Perfect capacity match
-* Overcapacity (more students than slots)
-* Undercapacity (unused book slots)
-* Skewed preferences (everyone wants same book)
-* Random large dataset simulation
-
-### Correctness checks:
-
-* No student assigned twice
-* No book exceeds capacity
-* Ranked choices are preferred over unranked fallback choices
-* Students below the class minimum ranking count are excluded
-
----
-
-## 14. Performance Expectations
-
-Target performance:
-
-| Students | Runtime target |
-| -------- | -------------- |
-| 100      | < 50ms         |
-| 500      | < 200ms        |
-| 2000     | < 2 seconds    |
-
----
-
-## 15. Future Improvements (not in v1)
-
-* Weighted satisfaction curves (non-linear scoring)
-* Fairness constraints (avoid always-last assignment)
-* Multi-book assignments per student
-* Real-time incremental recomputation
-
----
-
-## 16. Design Principle
-
-> The algorithm is the single source of truth for assignment fairness.
-
-Everything else in the system exists only to:
-
-* collect inputs
-* execute the solver
-* display outputs
-
----

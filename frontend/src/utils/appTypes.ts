@@ -8,6 +8,7 @@ export type Confirmation = {
   title: string;
   message: string;
   confirmLabel?: string;
+  confirmTone?: "danger" | "warning";
   onConfirm: () => void;
 } | null;
 

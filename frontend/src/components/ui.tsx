@@ -154,7 +154,7 @@ export function ConfirmationDialog({ confirmation, onCancel }: ConfirmationDialo
           <button type="button" onClick={onCancel}>
             Cancel
           </button>
-          <button type="button" className="danger" onClick={confirmation.onConfirm}>
+          <button type="button" className={confirmation.confirmTone ?? "danger"} onClick={confirmation.onConfirm}>
             {confirmation.confirmLabel ?? "Confirm"}
           </button>
         </div>
