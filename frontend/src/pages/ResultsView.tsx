@@ -1,9 +1,9 @@
 import { BarChart3, ClipboardList, RefreshCw } from "lucide-react";
 import { useMemo, useState } from "react";
 import { api } from "../api/client";
-import { ActionButton, Metric, NoticeModal, Panel, SortButton } from "../components/ui";
+import { ActionButton, ConfirmationDialog, Metric, NoticeModal, Panel, SortButton } from "../components/ui";
 import type { AssignmentResults, AssignmentRun, ClassPeriod } from "../types";
-import type { AssignmentSortKey, Notice, SortDirection } from "../utils/appTypes";
+import type { AssignmentSortKey, Confirmation, Notice, SortDirection } from "../utils/appTypes";
 import { withNotice } from "../utils/notices";
 import { formatPercent, ordinalLabel } from "../utils/viewHelpers";
 
@@ -19,6 +19,7 @@ type ResultsViewProps = {
 export function ResultsView(props: ResultsViewProps) {
   const [history, setHistory] = useState<AssignmentRun[]>([]);
   const [notice, setNotice] = useState<Notice>(null);
+  const [confirmation, setConfirmation] = useState<Confirmation>(null);
   const [loading, setLoading] = useState("");
   const [assignmentSort, setAssignmentSort] = useState<{
     key: AssignmentSortKey;
@@ -33,6 +34,18 @@ export function ResultsView(props: ResultsViewProps) {
     () => new Map((props.classPeriod?.students ?? []).map((student) => [student.id, student.username])),
     [props.classPeriod?.students]
   );
+  const booksById = useMemo(
+    () => new Map((props.classPeriod?.books ?? []).map((book) => [book.id, book])),
+    [props.classPeriod?.books]
+  );
+  const assignmentCountsByBookId = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const result of props.latestAssignment?.results ?? []) {
+      counts.set(result.bookId, (counts.get(result.bookId) ?? 0) + 1);
+    }
+
+    return counts;
+  }, [props.latestAssignment?.results]);
   const rankingColumnCount = useMemo(() => {
     const classBookCount = props.classPeriod?.books.length ?? 0;
     const submittedRankingCount = Math.max(
@@ -117,6 +130,44 @@ export function ResultsView(props: ResultsViewProps) {
     });
   }
 
+  async function reassignStudent(studentId: string, bookId: string) {
+    return withNotice(setLoading, setNotice, `reassign-${studentId}`, async () => {
+      const latest = await api.reassignStudent(props.token, props.classId, studentId, bookId);
+      props.onAssignment(latest);
+    });
+  }
+
+  function confirmOrReassignStudent(
+    studentId: string,
+    studentName: string,
+    currentBookId: string | undefined,
+    nextBookId: string
+  ) {
+    if (currentBookId === nextBookId) {
+      return;
+    }
+
+    const book = booksById.get(nextBookId);
+    const currentCount = assignmentCountsByBookId.get(nextBookId) ?? 0;
+    const assignedCountExcludingStudent = currentBookId === nextBookId ? currentCount - 1 : currentCount;
+
+    if (book && assignedCountExcludingStudent >= book.capacity) {
+      setConfirmation({
+        title: "Override book capacity?",
+        message: `${book.title} already has ${currentCount} of ${book.capacity} students assigned. Reassigning ${studentName} will exceed the max students for this book.`,
+        confirmLabel: "Override capacity",
+        confirmTone: "warning",
+        onConfirm: () => {
+          setConfirmation(null);
+          void reassignStudent(studentId, nextBookId);
+        }
+      });
+      return;
+    }
+
+    void reassignStudent(studentId, nextBookId);
+  }
+
   return (
     <section className="workspace-grid results-grid">
       <Panel title="Results lookup" icon={<RefreshCw size={18} />}>
@@ -169,7 +220,29 @@ export function ResultsView(props: ResultsViewProps) {
             {assignmentRows.map((row) => (
               <tr key={row.id}>
                 <td>{row.student}</td>
-                <td className={row.unassigned ? "danger-text" : undefined}>{row.book}</td>
+                <td className={row.unassigned ? "danger-text" : undefined}>
+                  <select
+                    aria-label={`Assigned book for ${row.student}`}
+                    className="assignment-select"
+                    disabled={loading === `reassign-${row.id}` || !props.latestAssignment}
+                    value={row.assignedBookId ?? ""}
+                    onChange={(event) => {
+                      const bookId = event.target.value;
+                      if (bookId) {
+                        confirmOrReassignStudent(row.id, row.student, row.assignedBookId, bookId);
+                      }
+                    }}
+                  >
+                    <option disabled value="">
+                      Unassigned
+                    </option>
+                    {(props.classPeriod?.books ?? []).map((book) => (
+                      <option key={book.id} value={book.id}>
+                        {book.title}
+                      </option>
+                    ))}
+                  </select>
+                </td>
                 {rankingColumnLabels.map((label, index) => {
                   const rankedBookId = row.rankingBookIds[index];
                   const rankedBook = row.rankingBooks[index] ?? "";
@@ -213,6 +286,7 @@ export function ResultsView(props: ResultsViewProps) {
       </Panel>
 
       <NoticeModal notice={notice} onDismiss={() => setNotice(null)} />
+      <ConfirmationDialog confirmation={confirmation} onCancel={() => setConfirmation(null)} />
     </section>
   );
 }

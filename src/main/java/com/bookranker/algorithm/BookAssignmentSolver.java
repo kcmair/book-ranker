@@ -1,6 +1,5 @@
 package com.bookranker.algorithm;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -14,49 +13,32 @@ public class BookAssignmentSolver {
   public AssignmentResult solve(ClassState classState) {
     Objects.requireNonNull(classState, "classState");
 
-    List<ClassState.Student> eligibleStudents = eligibleStudents(classState);
-    List<ClassState.Book> books = classState.books();
-
-    int source = 0;
-    int studentOffset = 1;
-    int bookOffset = studentOffset + eligibleStudents.size();
-    int sink = bookOffset + books.size();
-    MinCostFlowGraph graph = new MinCostFlowGraph(sink + 1);
-
-    for (int studentIndex = 0; studentIndex < eligibleStudents.size(); studentIndex++) {
-      graph.addEdge(source, studentOffset + studentIndex, 1, 0);
+    Map<ClassState.Book, Integer> remainingCapacity = new HashMap<>();
+    for (ClassState.Book book : classState.books()) {
+      remainingCapacity.put(book, classState.capacities().getOrDefault(book, 0));
     }
-
-    List<StudentBookEdge> studentBookEdges = new ArrayList<>();
-    for (int studentIndex = 0; studentIndex < eligibleStudents.size(); studentIndex++) {
-      ClassState.Student student = eligibleStudents.get(studentIndex);
-      Map<ClassState.Book, Integer> studentRankings = classState.rankings().get(student);
-
-      for (int bookIndex = 0; bookIndex < books.size(); bookIndex++) {
-        ClassState.Book book = books.get(bookIndex);
-        int rank = studentRankings.getOrDefault(book, books.size() + 1);
-        int cost = RankingCost.fromRank(rank);
-        MinCostFlowGraph.Edge edge =
-            graph.addEdge(studentOffset + studentIndex, bookOffset + bookIndex, 1, cost);
-        studentBookEdges.add(new StudentBookEdge(student, book, rank, edge));
-      }
-    }
-
-    for (int bookIndex = 0; bookIndex < books.size(); bookIndex++) {
-      ClassState.Book book = books.get(bookIndex);
-      int capacity = classState.capacities().getOrDefault(book, 0);
-      graph.addEdge(bookOffset + bookIndex, sink, capacity, 0);
-    }
-
-    MinCostFlowGraph.FlowResult flowResult =
-        graph.minCostMaxFlow(source, sink, eligibleStudents.size());
-
     Map<ClassState.Student, ClassState.Book> assignments = new LinkedHashMap<>();
     Map<ClassState.Student, Integer> assignedRanks = new HashMap<>();
-    for (StudentBookEdge candidate : studentBookEdges) {
-      if (candidate.edge().flow() > 0) {
-        assignments.put(candidate.student(), candidate.book());
-        assignedRanks.put(candidate.student(), candidate.rank());
+    int totalCost = 0;
+
+    for (ClassState.Student student : classState.students()) {
+      Map<ClassState.Book, Integer> studentRankings = classState.rankings().get(student);
+      if (studentRankings == null || studentRankings.isEmpty()) {
+        continue;
+      }
+
+      for (Map.Entry<ClassState.Book, Integer> candidate : sortedRankings(studentRankings)) {
+        ClassState.Book book = candidate.getKey();
+        int capacity = remainingCapacity.getOrDefault(book, 0);
+        if (capacity <= 0) {
+          continue;
+        }
+
+        assignments.put(student, book);
+        assignedRanks.put(student, candidate.getValue());
+        remainingCapacity.put(book, capacity - 1);
+        totalCost += RankingCost.fromRank(candidate.getValue());
+        break;
       }
     }
 
@@ -66,21 +48,14 @@ public class BookAssignmentSolver {
     return new AssignmentResult(
         assignments,
         unassigned,
-        flowResult.cost(),
-        satisfactionScore(flowResult.cost(), assignments.size(), books.size()),
+        totalCost,
+        satisfactionScore(totalCost, assignments.size(), classState.books().size()),
         satisfactionDistribution(assignedRanks));
   }
 
-  private List<ClassState.Student> eligibleStudents(ClassState classState) {
-    List<ClassState.Student> eligible = new ArrayList<>();
-    for (ClassState.Student student : classState.students()) {
-      Map<ClassState.Book, Integer> studentRankings = classState.rankings().get(student);
-      if (studentRankings == null || studentRankings.size() < classState.minimumRankingCount()) {
-        continue;
-      }
-      eligible.add(student);
-    }
-    return eligible;
+  private List<Map.Entry<ClassState.Book, Integer>> sortedRankings(
+      Map<ClassState.Book, Integer> studentRankings) {
+    return studentRankings.entrySet().stream().sorted(Map.Entry.comparingByValue()).toList();
   }
 
   private double satisfactionScore(int totalCost, int assignmentCount, int bookCount) {
@@ -111,7 +86,4 @@ public class BookAssignmentSolver {
 
     return new AssignmentResult.SatisfactionDistribution(firstChoice, topThree, worseThanThird);
   }
-
-  private record StudentBookEdge(
-      ClassState.Student student, ClassState.Book book, int rank, MinCostFlowGraph.Edge edge) {}
 }

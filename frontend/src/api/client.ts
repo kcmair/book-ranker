@@ -229,6 +229,11 @@ export const liveClient = {
     request<RunAssignmentResponse>(`/api/classes/${classId}/assign`, "POST", { token }),
   getLatestAssignment: (token: string, classId: string) =>
     request<AssignmentResults>(`/api/classes/${classId}/assignments/latest`, "GET", { token }),
+  reassignStudent: (token: string, classId: string, studentId: string, bookId: string) =>
+    request<AssignmentResults>(`/api/classes/${classId}/assignments/latest/students/${studentId}`, "PATCH", {
+      token,
+      body: { bookId }
+    }),
   getAssignmentHistory: (token: string, classId: string) =>
     request<{ runs: AssignmentRun[] }>(`/api/classes/${classId}/assignments`, "GET", { token }),
   getClassAssignmentGrid: (joinCode: string) =>

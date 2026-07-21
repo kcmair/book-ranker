@@ -263,7 +263,7 @@ ClassState {
 }
 ```
 
-This is loaded once per assignment run and passed into the MCMF solver.
+This is loaded once per assignment run and passed into the ranked-choice assignment solver.
 
 ---
 

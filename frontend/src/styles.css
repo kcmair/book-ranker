@@ -25,7 +25,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -653,6 +654,21 @@ input:focus {
   font-weight: 900;
 }
 
+.assignment-select {
+  width: min(100%, 260px);
+  min-height: 36px;
+  padding: 6px 34px 6px 10px;
+  border: 1px solid #9fb7ac;
+  border-radius: 6px;
+  color: #18372a;
+  background: #f8fbf9;
+  font-weight: 700;
+}
+
+.assignment-select:disabled {
+  opacity: 0.72;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -982,6 +998,12 @@ tr:last-child td {
   border-color: #a83f35;
   color: #ffffff;
   background: #a83f35;
+}
+
+.confirm-actions button.warning {
+  border-color: #c5892f;
+  color: #ffffff;
+  background: #b8761f;
 }
 
 .spin {
