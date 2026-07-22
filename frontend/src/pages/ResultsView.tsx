@@ -302,7 +302,6 @@ export function ResultsView(props: ResultsViewProps) {
             <tr>
               <th>Run</th>
               <th>Status</th>
-              <th>Cost</th>
               <th>Satisfaction</th>
               <th>Created</th>
               <th>Actions</th>
@@ -313,7 +312,6 @@ export function ResultsView(props: ResultsViewProps) {
               <tr key={run.runId}>
                 <td>{run.runId}</td>
                 <td>{run.status}</td>
-                <td>{run.totalCost}</td>
                 <td>{formatPercent(run.satisfactionScore)}</td>
                 <td>{run.createdAt ? new Date(run.createdAt).toLocaleString() : "-"}</td>
                 <td>
